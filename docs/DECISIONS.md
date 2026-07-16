@@ -84,23 +84,23 @@ agregaciones en memoria en la app (más caro y menos escalable que SQL).
 
 ---
 
-## D-0006 — Despliegue: Render (backend) + Vercel (frontend) + Postgres administrado free
-**Estado:** propuesta (a confirmar) · Fase 0
+## D-0006 — Despliegue: Render (backend) + Vercel (frontend) + Supabase (Postgres+pgvector)
+**Estado:** aceptada · Fase 0
 
 **Contexto.** Nube desde el inicio, costo mínimo, sin sacrificar escalabilidad ni proactividad.
 
-**Decisión propuesta.**
+**Decisión.**
 - Frontend estático en **Vercel** (free).
 - Backend containerizado en **Render**, instancia chica *always-on* pagada (~US$7/mes) para
   evitar cold starts que romperían la proactividad.
-- Postgres + pgvector en **Neon** o **Supabase** (free tier) — no la Postgres de Render, cuyo
-  free tier caduca a los 90 días.
+- Postgres + pgvector en **Supabase** (free tier): además de la base, aporta storage y auth
+  que probablemente usaremos más adelante, todo detrás de nuestros puertos.
 
 **Razón.** Costo base acotado (~US$7/mes + OpenRouter variable). Backend en Docker detrás de
 puertos ⇒ portable, sin lock-in. Sobra para la escala de un asistente personal.
 
 **Alternativas descartadas.** Render free tier para el backend (se duerme, mata proactividad);
-Fly.io/Railway (válidos, pero Render+Vercel es más simple y suficiente).
+Neon (válido, pero Supabase suma storage/auth en el mismo free tier); Fly.io/Railway.
 
 ---
 

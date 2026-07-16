@@ -9,8 +9,12 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > interfaces/platform`, puertos del dominio, entidad `UsageRecord` con cálculo de costo
 > testeado, config por entorno, logging estructurado, API `/health`, docker-compose con pgvector.
 >
-> **Próximo paso concreto (Fase 1):** adaptador `LLMProvider` sobre OpenRouter detrás del
-> puerto, con emisión de `UsageRecord` por llamada. Luego embeddings + memoria + pipeline.
+> **En Fase 1 ya existe:** adaptador `OpenRouterProvider` (LLMProvider) con tests sin red;
+> caso de uso `MeteredCompletion` que registra un `UsageRecord` por llamada; catálogo de
+> precios `PricingCatalog`; `InMemoryUsageMeter`. Loop de costo cerrado a nivel de código.
+>
+> **Próximo paso concreto:** `EmbeddingProvider` + `VectorStore` sobre pgvector (Supabase),
+> y sobre eso el sistema de memoria (working/episodic/semantic) con RAG.
 
 ## Fases
 
@@ -20,9 +24,10 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [x] Puertos del dominio definidos como interfaces (los que dependen de entidades futuras van en Fase 1).
 - [x] Puerto `UsageMeter` + entidad `UsageRecord` con cálculo de costo testeado.
 
-### Fase 1 — Núcleo conversacional + memoria
-- [ ] Adaptador `LLMProvider` sobre OpenRouter (detrás del puerto).
-- [ ] `EmbeddingProvider` + `VectorStore` (pgvector).
+### Fase 1 — Núcleo conversacional + memoria ⏳ (en curso)
+- [x] Adaptador `LLMProvider` sobre OpenRouter (detrás del puerto).
+- [x] Caso de uso `MeteredCompletion` + `PricingCatalog` + `InMemoryUsageMeter` (costo por llamada).
+- [ ] `EmbeddingProvider` + `VectorStore` (pgvector / Supabase).
 - [ ] Sistema de memoria (working, episodic, semantic) con RAG.
 - [ ] Pipeline costo-primero: reglas → caché → router → contexto acotado → LLM.
 - [ ] `ModelRouter` con política de selección de modelo más barato capaz.
