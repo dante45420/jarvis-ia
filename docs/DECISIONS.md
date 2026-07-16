@@ -104,6 +104,21 @@ Neon (válido, pero Supabase suma storage/auth en el mismo free tier); Fly.io/Ra
 
 ---
 
+## D-0007 — Embeddings vía OpenRouter con `baai/bge-m3` (1024 dims)
+**Estado:** aceptada · Fase 1
+
+**Contexto.** Se necesita un proveedor de embeddings barato y confiable para RAG. Idealmente
+sin sumar proveedores ni keys nuevos.
+
+**Decisión.** OpenRouter expone un endpoint de embeddings OpenAI-compatible
+(`/api/v1/embeddings`), con el mismo key que el chat. Se usa `baai/bge-m3` por defecto
+(1024 dims, multilingüe, ~US$0.01/M tokens), detrás del puerto `EmbeddingProvider`. La
+dimensión del vector (1024) fija la columna de pgvector. Cada llamada se mide como costo.
+
+**Alternativas descartadas.** OpenAI text-embedding-3-small o Google text-embedding-004
+(sumaban un proveedor y key aparte); modelo local (consume RAM de la instancia Render chica).
+Todas siguen disponibles: basta cambiar el adaptador, porque el dominio depende del puerto.
+Nota: cambiar de modelo con otra dimensión obliga a re-embeber lo ya guardado.
+
 ## Decisiones abiertas (pendientes)
-- **Modelo(s) de embeddings** económico(s) a usar por defecto.
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").

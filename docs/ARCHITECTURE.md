@@ -11,7 +11,7 @@ justificación (incluyendo alternativas descartadas) están en `DECISIONS.md`.
 | Gestor de deps | `uv` | Rápido y reproducible. |
 | Persistencia | PostgreSQL + `pgvector` | Relacional **y** vectorial en una sola base = menos servicios, menos costo. |
 | LLM gateway | OpenRouter detrás del puerto `LLMProvider` | Ruteo al modelo más barato capaz. Nunca acoplado al SDK del proveedor. |
-| Embeddings | Modelo económico detrás del puerto `EmbeddingProvider` | RAG barato; proveedor intercambiable. |
+| Embeddings | OpenRouter (`baai/bge-m3`, 1024 dims) detrás de `EmbeddingProvider` | RAG barato y multilingüe; mismo gateway y key que el chat. |
 | Caché / cola | Redis (se introduce cuando se necesite; hasta entonces, Postgres) | No sumar infra antes de tiempo. |
 | Jobs async | Empezar con scheduler liviano; graduar a cola async cuando escale | Proactividad (recordatorios, podcast) desacoplada. |
 | Frontend | React + TypeScript + Vite + Tailwind + shadcn/ui | UI limpia con colapsables; deploy barato (estático). |

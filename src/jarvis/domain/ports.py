@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from jarvis.domain.embedding import EmbeddingResult
 from jarvis.domain.llm import LLMResult, Message
 from jarvis.domain.telemetry import UsageRecord
 
@@ -37,8 +38,8 @@ class LLMProvider(Protocol):
 class EmbeddingProvider(Protocol):
     """Convierte texto en vectores para búsqueda por similitud (RAG)."""
 
-    async def embed(self, text: str) -> list[float]:
-        """Devuelve el vector de embedding del texto."""
+    async def embed(self, text: str) -> EmbeddingResult:
+        """Devuelve el vector de embedding del texto junto a los tokens consumidos."""
         ...
 
 

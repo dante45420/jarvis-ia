@@ -13,7 +13,10 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > caso de uso `MeteredCompletion` que registra un `UsageRecord` por llamada; catálogo de
 > precios `PricingCatalog`; `InMemoryUsageMeter`. Loop de costo cerrado a nivel de código.
 >
-> **Próximo paso concreto:** `EmbeddingProvider` + `VectorStore` sobre pgvector (Supabase),
+> También existe: `OpenRouterEmbeddingProvider` (`bge-m3`, 1024 dims) con tokens medidos,
+> y el tipo `EmbeddingResult`. Chat y embeddings comparten adaptador y key.
+>
+> **Próximo paso concreto:** `VectorStore` sobre pgvector (Supabase, columna VECTOR(1024)),
 > y sobre eso el sistema de memoria (working/episodic/semantic) con RAG.
 
 ## Fases
@@ -27,7 +30,8 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 ### Fase 1 — Núcleo conversacional + memoria ⏳ (en curso)
 - [x] Adaptador `LLMProvider` sobre OpenRouter (detrás del puerto).
 - [x] Caso de uso `MeteredCompletion` + `PricingCatalog` + `InMemoryUsageMeter` (costo por llamada).
-- [ ] `EmbeddingProvider` + `VectorStore` (pgvector / Supabase).
+- [x] `EmbeddingProvider` sobre OpenRouter (`bge-m3`, 1024 dims), con tokens medidos.
+- [ ] `VectorStore` sobre pgvector (Supabase).
 - [ ] Sistema de memoria (working, episodic, semantic) con RAG.
 - [ ] Pipeline costo-primero: reglas → caché → router → contexto acotado → LLM.
 - [ ] `ModelRouter` con política de selección de modelo más barato capaz.
