@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from jarvis.domain.embedding import EmbeddingResult
+from jarvis.domain.embedding import BatchEmbeddingResult, EmbeddingResult
 from jarvis.domain.llm import LLMResult, Message
 
 CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -40,12 +40,23 @@ class OpenRouterEmbeddingProvider:
 
     async def embed(self, text: str) -> EmbeddingResult:
         """Devuelve el vector de embedding del texto junto a los tokens consumidos."""
-        payload = {"model": self._model, "input": text}
+        data = await self._post_embeddings(text)
+        return _parse_embedding(data)
+
+    async def embed_batch(self, texts: list[str]) -> BatchEmbeddingResult:
+        """Embebe varios textos en una sola llamada (batching, ver D-0011)."""
+        data = await self._post_embeddings(texts)
+        return _parse_batch_embedding(data)
+
+    async def _post_embeddings(self, input_: str | list[str]) -> dict[str, Any]:
+        """Ejecuta la petición de embeddings y devuelve el JSON de respuesta."""
+        payload = {"model": self._model, "input": input_}
         response = await self._client.post(
             EMBEDDINGS_URL, json=payload, headers=_auth_headers(self._api_key)
         )
         response.raise_for_status()
-        return _parse_embedding(response.json())
+        result: dict[str, Any] = response.json()
+        return result
 
 
 def _auth_headers(api_key: str) -> dict[str, str]:
@@ -77,3 +88,10 @@ def _parse_embedding(data: dict[str, Any]) -> EmbeddingResult:
     vector = data["data"][0]["embedding"]
     usage = data.get("usage", {})
     return EmbeddingResult(vector=vector, tokens=usage.get("prompt_tokens", 0))
+
+
+def _parse_batch_embedding(data: dict[str, Any]) -> BatchEmbeddingResult:
+    """Extrae los vectores en orden y los tokens totales desde la respuesta de embeddings."""
+    vectors = [item["embedding"] for item in data["data"]]
+    usage = data.get("usage", {})
+    return BatchEmbeddingResult(vectors=vectors, tokens=usage.get("prompt_tokens", 0))

@@ -16,18 +16,8 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > También existe: `OpenRouterEmbeddingProvider` (`bge-m3`, 1024 dims) con tokens medidos,
 > y el tipo `EmbeddingResult`. Chat y embeddings comparten adaptador y key.
 >
-> **Repo reorganizado a monorepo** (D-0013): el backend vive en `apps/backend`; existen
-> `apps/web`, `apps/mobile`, `packages/shared` (placeholders). Comandos de backend se corren
-> desde `apps/backend`. Diseño de memoria (D-0008), módulos (D-0009), frontend/mobile (D-0010),
-> batching (D-0011) y cerebro Córtex (D-0012) ya documentados.
->
-> **Memoria (primer trozo) LISTA y verificada contra Postgres real** (docker, puerto configurable
-> vía `JARVIS_DB_PORT`): dominio de memoria, extracción determinística de hechos, contexto con
-> presupuesto, adaptador in-memory (unit) y pgvector (integración), Alembic con índice HNSW.
-> 25 tests verdes (2 de integración). Persistencia con SQLAlchemy 2.0 async, esquema con `owner_id`.
->
-> **Próximo paso:** empezar los **módulos** (D-0009). Falta aún, cuando se retome memoria:
-> consolidación por LLM (episodic) y job de decaimiento (los campos ya existen en `facts`).
+> **Próximo paso concreto:** `VectorStore` sobre pgvector (Supabase, columna VECTOR(1024)),
+> y sobre eso el sistema de memoria (working/episodic/semantic) con RAG.
 
 ## Fases
 
@@ -40,11 +30,9 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 ### Fase 1 — Núcleo conversacional + memoria ⏳ (en curso)
 - [x] Adaptador `LLMProvider` sobre OpenRouter (detrás del puerto).
 - [x] Caso de uso `MeteredCompletion` + `PricingCatalog` + `InMemoryUsageMeter` (costo por llamada).
-- [x] `EmbeddingProvider` sobre OpenRouter (`bge-m3`, 1024 dims), con tokens medidos; `embed_batch`.
-- [x] `MemoryStore` sobre pgvector (SQLAlchemy async + Alembic, índice HNSW). Test de integración real.
-- [x] Memoria (working + semantic con RAG): guardar turnos, hechos determinísticos (regex),
-      dedup por similitud, contexto con presupuesto de tokens. `MeteredEmbeddingProvider` mide el costo.
-- [ ] Consolidación por LLM (episodic) + decaimiento/olvido (campos ya en el esquema).
+- [x] `EmbeddingProvider` sobre OpenRouter (`bge-m3`, 1024 dims), con tokens medidos.
+- [ ] `VectorStore` sobre pgvector (Supabase).
+- [ ] Sistema de memoria (working, episodic, semantic) con RAG.
 - [ ] Pipeline costo-primero: reglas → caché → router → contexto acotado → LLM.
 - [ ] `ModelRouter` con política de selección de modelo más barato capaz.
 - [ ] `SemanticCache`.

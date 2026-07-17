@@ -11,3 +11,11 @@ class EmbeddingResult:
 
     vector: list[float]
     tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class BatchEmbeddingResult:
+    """Resultado de embeber varios textos de una vez: los vectores en orden y los tokens totales."""
+
+    vectors: list[list[float]]
+    tokens: int

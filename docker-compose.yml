@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: jarvis
       POSTGRES_DB: jarvis
     ports:
-      - "5432:5432"
+      - "${JARVIS_DB_PORT:-5432}:5432"
     volumes:
       - jarvis_db:/var/lib/postgresql/data
 

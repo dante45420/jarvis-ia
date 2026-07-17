@@ -260,4 +260,31 @@ por app; monorepo es organización, no acoplamiento.
 
 **Alternativas descartadas.** Repos separados (duplican tipos o exigen paquete versionado y PRs
 coordinados; solo valen con equipos o releases independientes, que no aplican a un dev solo).
+
+---
+
+## D-0014 — Persistencia: SQLAlchemy 2.0 async + Alembic; multiusuario-ready con owner_id
+**Estado:** aceptada · Fase 1
+
+**Contexto.** La memoria necesita persistencia en Postgres+pgvector, con esquema evolucionable y
+lista para escalar. Aunque hoy es de un solo usuario, la visión exige no impedir multiusuario.
+
+**Decisión.**
+- **SQLAlchemy 2.0 async** (con `asyncpg`) como capa de acceso, **Alembic** para migraciones
+  versionadas. Todo detrás del puerto `MemoryStore`; el dominio no conoce SQLAlchemy.
+- **`owner_id` en todas las filas** (log y hechos) desde el día 1. Hoy es una constante; habilitar
+  multiusuario no exigirá migrar datos ni reescribir queries.
+- **Índice HNSW** con `vector_cosine_ops` sobre la columna `VECTOR(1024)`.
+- Tests: fakes en memoria para dominio/casos de uso; test de integración del adaptador pgvector
+  contra Postgres real (docker-compose, puerto configurable con `JARVIS_DB_PORT`; se salta si no
+  hay `JARVIS_TEST_DATABASE_URL`). Runtime real siempre Postgres en servidor, nunca SQLite.
+
+**Alternativas descartadas.** asyncpg puro (migraciones y mapeo a mano); SQLModel (menos maduro
+en async); IVFFlat (HNSW da mejor calidad/latencia a esta escala); single-user sin owner_id
+(migración cara si algún día se abre a multiusuario).
+
+---
+
+## Decisiones abiertas (pendientes)
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
+- **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.

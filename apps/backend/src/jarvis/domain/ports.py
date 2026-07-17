@@ -11,8 +11,13 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from jarvis.domain.embedding import EmbeddingResult
+from jarvis.domain.embedding import BatchEmbeddingResult, EmbeddingResult
 from jarvis.domain.llm import LLMResult, Message
+from jarvis.domain.memory import (
+    ConversationTurn,
+    EmbeddedFact,
+    RetrievedFact,
+)
 from jarvis.domain.telemetry import UsageRecord
 
 
@@ -42,6 +47,10 @@ class EmbeddingProvider(Protocol):
         """Devuelve el vector de embedding del texto junto a los tokens consumidos."""
         ...
 
+    async def embed_batch(self, texts: list[str]) -> BatchEmbeddingResult:
+        """Embebe varios textos en una sola llamada (batching obligatorio, ver D-0011)."""
+        ...
+
 
 @runtime_checkable
 class ModelRouter(Protocol):
@@ -62,4 +71,27 @@ class SemanticCache(Protocol):
 
     async def put(self, prompt: str, response: str) -> None:
         """Guarda una respuesta para reutilizarla ante intenciones equivalentes."""
+        ...
+
+
+@runtime_checkable
+class MemoryStore(Protocol):
+    """Persiste el log de turnos y los hechos durables; recupera hechos por similitud (RAG)."""
+
+    async def append_turn(self, turn: ConversationTurn) -> None:
+        """Agrega un turno al log de conversación."""
+        ...
+
+    async def recent_turns(self, owner_id: str, limit: int) -> list[ConversationTurn]:
+        """Devuelve los turnos más recientes del usuario, del más nuevo al más viejo."""
+        ...
+
+    async def add_facts(self, facts: list[EmbeddedFact]) -> None:
+        """Persiste en lote hechos durables con su vector."""
+        ...
+
+    async def search_facts(
+        self, owner_id: str, embedding: list[float], k: int, min_similarity: float
+    ) -> list[RetrievedFact]:
+        """Recupera hasta k hechos por similitud de coseno sobre el umbral dado."""
         ...
