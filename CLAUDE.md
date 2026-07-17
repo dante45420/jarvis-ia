@@ -27,6 +27,8 @@ No leas todo el código; los docs están escritos para que retomes sin escanear 
 - Todo request a un LLM pasa por el **pipeline costo-primero** (ver `ARCHITECTURE.md`): reglas → caché → RAG con presupuesto de tokens → modelo más barato capaz vía OpenRouter.
 - Nunca mandes historial completo a un LLM. Recupera solo lo relevante (RAG) y resume lo viejo.
 - Salidas de LLM en formato estructurado (function calling / JSON), no prosa, salvo que el usuario final la lea.
+- **Batching obligatorio:** toda operación agrupable se agrupa (embeddings, consolidaciones, notificaciones, escrituras). Nunca una llamada por ítem si puede ser una por lote.
+- Memoria: **log ≠ memoria**. Guardar es SQL ($0). Escribir memoria va por la escalera barata→cara (regex → estructurado → heurística → LLM por lotes). Inyectar siempre con presupuesto fijo de tokens. Detalle en `ARCHITECTURE.md`.
 
 ### Prioridad 2 — Escalabilidad (igual de importante)
 - Arquitectura hexagonal (puertos y adaptadores). El dominio no conoce infraestructura.

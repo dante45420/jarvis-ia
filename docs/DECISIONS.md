@@ -120,5 +120,144 @@ dimensión del vector (1024) fija la columna de pgvector. Cada llamada se mide c
 Todas siguen disponibles: basta cambiar el adaptador, porque el dominio depende del puerto.
 Nota: cambiar de modelo con otra dimensión obliga a re-embeber lo ya guardado.
 
-## Decisiones abiertas (pendientes)
+## D-0008 — Modelo de memoria: log ≠ memoria, con presupuestos separados y hechos graph-ready
+**Estado:** aceptada · Fase 1
+
+**Contexto.** La memoria es lo que hace a Jarvis personal y también el mayor riesgo de costo.
+Hay que decidir qué entra, cómo se inyecta y cómo se registra sin gastar tokens de más.
+
+**Decisión.** Se separan tres presupuestos que no deben confundirse:
+- **Guardar** (log crudo de turnos en Postgres) = SQL, $0 en tokens. Nunca se inyecta entero.
+- **Escribir memoria** = ascender del log a memoria recuperable. Vía escalera de lo barato a
+  lo caro: (1) señales explícitas por regex, (2) eventos estructurados a tablas propias,
+  (3) heurística de salience, (4) extractor LLM **solo por lotes, modelo barato, sobre una
+  ventana** — nunca mensaje por mensaje. Resumen **rodante y jerárquico** (resume turnos
+  nuevos + resumen anterior, no todo el historial) ⇒ costo de escritura acotado.
+- **Inyectar** = armar contexto con **presupuesto fijo de tokens**, recorte determinístico por
+  prioridad: system → ficha del usuario (~300 tok) → working (~8 turnos) → RAG top-k (k=5 con
+  umbral) → resumen episódico. La recuperación es búsqueda en pgvector (cero IA).
+
+**Hechos graph-ready (D-0008b).** Los hechos durables se modelan como
+`sujeto–predicado–objeto + tiempo`, detrás de un puerto `MemoryStore`. Hoy viven en Postgres;
+mañana un adaptador de grafo temporal (Graphiti/Zep) se alimenta del mismo pipeline de
+consolidación, sin reescritura. Ver D-0012.
+
+**Mejoras incluidas.** Dedup por similitud antes de escribir; decaimiento/olvido
+(`last_accessed`, `access_count`, archivado de lo viejo no usado); caché semántico antes de
+recuperar. Cada embedding y consolidación emite `UsageRecord` ⇒ el costo de la memoria es visible.
+
+**Knobs por defecto (calibrables):** working ~8 turnos / ~1–2k tok; RAG k=5 con umbral;
+ficha ~300 tok; consolidación al cerrar sesión + umbral de tokens en sesiones largas.
+
+**Alternativas descartadas.** Resumir turno por turno con LLM (costo lineal en tokens);
+inyectar historial completo (costo explosivo); solo vectorial sin hechos graph-ready (deuda
+para el cerebro futuro); montar el grafo desde ya (prematuro, infra antes del chat básico).
+
+---
+
+## D-0009 — Reglas de módulos: un módulo = un "trabajo" del usuario
+**Estado:** aceptada · Fase 2+
+
+**Contexto.** El producto será "muchas apps en una". Se necesita un criterio claro para no caer
+ni en god-modules ni en fragmentación.
+
+**Decisión.** Un **módulo** = un job-to-be-done con su propio dominio de datos y su identidad de
+tabbar (se siente como app propia). Reglas:
+- **Mismo módulo** si comparte trabajo *y* datos (ej.: podcast + noticiero = módulo de
+  aprendizaje "Oráculo": el trabajo es "mantenme informado con audio curado").
+- **Módulo nuevo** solo si cambia el trabajo *y* el modelo mental *y* los datos.
+- **Anti-god-module:** si el tabbar del módulo necesita >~5 acciones no relacionadas, se parte.
+- **Anti-fragmentación:** si dos módulos comparten datos y el usuario salta constante entre
+  ellos, son uno.
+- Cada módulo es un **slice vertical** (dominio + casos de uso + adaptadores + API + UI) y
+  **expone sus capacidades como funciones tipadas** (tool-calling / MCP-ready) para que el
+  cerebro futuro (D-0012) las invoque sin trabajo extra.
+- Nombres **simples y épicos**, una palabra. Propuestos: Oráculo (aprendizaje), Bóveda
+  (contabilidad), Córtex (cerebro). La Bandeja es sistema, no módulo (ver D-0010).
+
+**Alternativas descartadas.** Módulos por feature técnica (fragmenta); un mega-módulo con
+todo (god-module, mata la cohesión).
+
+---
+
+## D-0010 — Frontend web + app mobile: rendimiento percibido y arquitectura de tabbar
+**Estado:** aceptada · Fase 3
+
+**Contexto.** Se quiere UI limpia y profesional, carga rapidísima que no bloquee, y una app
+mobile personal, offline-first y modular ("muchas apps en una").
+
+**Decisión.**
+- **Nada bloquea la primera pintura:** shell instantáneo → skeletons → datos por streaming.
+  Módulos con lazy loading (un chunk por módulo). UI optimista + feedback inmediato; sin
+  spinners que congelen. Presupuesto de rendimiento medido como métrica de salud.
+- **Animación barata:** solo `transform`/`opacity` (GPU); librería `motion` para lo declarativo,
+  CSS para lo micro. Si una animación toca layout o cuesta RAM, no va.
+- **Paleta:** base neutra (2–3 grises + fondo) + **un** color de acento, con modo claro/oscuro.
+- **Mobile:** Expo (React Native), comparte modelo y código con la web. **Hub central**: el
+  ícono central del tabbar siempre vuelve al Hub; cada módulo reemplaza el tabbar por el suyo.
+  **Offline-first:** cada módulo declara el mínimo que necesita sin señal y sincroniza al volver.
+- **Piezas transversales (sistema, no módulos):** contabilidad de IA (igual que web) y
+  **Bandeja de Jarvis** (human-in-the-loop): ítems que requieren aprobación/respuesta,
+  ordenables por módulo (luego por hora) o por hora de llegada, filtrables por ambos. Es el
+  canal por donde el cerebro futuro pedirá permiso; contrato común "ítem que requiere al usuario".
+
+**Alternativas descartadas.** Flutter/nativo (otro lenguaje, duplica trabajo para un solo
+usuario); animaciones JS pesadas; multi-acento (más caro de mantener consistente).
+
+---
+
+## D-0011 — Batching obligatorio siempre que se pueda
+**Estado:** aceptada · Fase 1
+
+**Contexto.** Prioridad #1 es el ahorro. Muchas operaciones agrupables se pagan de más si se
+hacen una por una.
+
+**Decisión.** Regla dura: **toda operación agrupable se agrupa** — embeddings (OpenRouter acepta
+array en `input`), consolidaciones de memoria, notificaciones a la Bandeja, escrituras a DB.
+Nada de una llamada por ítem si puede ser una por lote. Se mide en el dashboard.
+
+**Alternativas descartadas.** Procesar ítem por ítem por simplicidad (viola Prioridad #1).
+
+---
+
+## D-0012 — Cerebro/orquestador (Córtex): modelo Claude vía OpenRouter, módulos como herramientas
+**Estado:** propuesta (diseño a futuro, se implementa en fase posterior) · Fase 5+
+
+**Contexto.** El norte es una secretaria virtual con la que conversas y que decide qué módulo
+activar, te entrega reportes, etc. Debe poder implementarse de forma natural, no como parche.
+
+**Decisión de diseño (para no cerrar puertas).**
+- **Córtex = orquestador que llama a los módulos como herramientas tipadas** (por eso D-0009
+  exige que cada módulo exponga capacidades MCP-ready desde el primer día).
+- **Motor del runtime:** modelo Claude potente **vía OpenRouter** (mismo gateway/key, medible,
+  dentro de términos), reservado solo para razonar/orquestar; ruteo a cheapest-capable para el
+  resto. Todo detrás del puerto `LLMProvider`.
+- **Suscripción Claude:** se usa para *construir* Jarvis (Claude Code), **no** como motor del
+  Jarvis desplegado. Los términos priorizan uso interactivo, no un backend autónomo 24/7
+  (reverificar términos vigentes antes de apoyarse en ello). Si cambian, es swap de adaptador.
+- **Memoria del cerebro:** los hechos graph-ready de D-0008 alimentan a Córtex; el grafo
+  temporal (Graphiti) entra cuando se justifique.
+
+**Alternativas descartadas.** Acoplar Córtex a un proveedor concreto (rompe el puerto); usar la
+suscripción como motor del backend desplegado (fuera de términos / riesgoso).
+
+---
+
+## D-0013 — Monorepo con carpetas por app (backend / web / mobile / shared)
+**Estado:** aceptada · Fase 1
+
+**Contexto.** Entran web (React/Vite) y mobile (Expo/RN) junto al backend (Python/FastAPI). Hay
+que decidir cómo se organiza el código.
+
+**Decisión.** **Un solo repositorio (monorepo)** con carpetas por app:
+`apps/backend`, `apps/web`, `apps/mobile`, y `packages/shared` para tipos TS compartidos
+(contratos de API, modelos de módulo) entre web y mobile. `docs/` y `CLAUDE.md` en la raíz;
+`docker-compose.yml` en la raíz orquesta todo. Cada app conserva su propio build/deploy/deps.
+
+**Razón.** Web y mobile son TS/React ⇒ contratos definidos una vez en `shared`. Cambios
+atómicos backend+clientes en un commit. Menos fricción para retomar. El aislamiento se mantiene
+por app; monorepo es organización, no acoplamiento.
+
+**Alternativas descartadas.** Repos separados (duplican tipos o exigen paquete versionado y PRs
+coordinados; solo valen con equipos o releases independientes, que no aplican a un dev solo).
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").

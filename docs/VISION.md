@@ -40,9 +40,17 @@ Se asume que cada componente crecerá en orden de magnitud. Por eso:
 
 - **Canal principal: app web.** Dashboard limpio con revelación progresiva (colapsables,
   menú hamburguesa): se muestra lo importante, el detalle se accede si se pide. Chat integrado.
+- **App mobile personal (Expo/React Native).** "Muchas apps en una": un Hub central y módulos
+  que se sienten como apps propias (tabbar que cambia por módulo). Offline-first. Solo la usa Dante.
 - **Canales como adaptadores.** Telegram u otros entran después como un *adaptador de canal*
   más, sin tocar la lógica del asistente. Cada canal puede tener sus propias políticas
   (ej. Telegram con contexto más acotado por la fricción de retomar hilos largos).
+
+El producto se organiza en **módulos** (un job-to-be-done cada uno) sobre un núcleo común, más
+dos piezas transversales de sistema: la **contabilidad de IA** y la **Bandeja de Jarvis**
+(donde cae todo lo que requiere tu aprobación o respuesta). Reglas de módulos en `DECISIONS.md`.
+El norte último es el cerebro **Córtex**: una secretaria virtual con la que conversas y que
+decide qué módulo activar. Se diseña desde ya para que enchufe natural, se implementa a futuro.
 
 ## Alcance por capacidades (el "qué hace")
 

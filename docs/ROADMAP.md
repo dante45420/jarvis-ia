@@ -16,8 +16,13 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > También existe: `OpenRouterEmbeddingProvider` (`bge-m3`, 1024 dims) con tokens medidos,
 > y el tipo `EmbeddingResult`. Chat y embeddings comparten adaptador y key.
 >
+> **Repo reorganizado a monorepo** (D-0013): el backend vive en `apps/backend`; existen
+> `apps/web`, `apps/mobile`, `packages/shared` (placeholders). Comandos de backend se corren
+> desde `apps/backend`. Diseño de memoria (D-0008), módulos (D-0009), frontend/mobile (D-0010),
+> batching (D-0011) y cerebro Córtex (D-0012) ya documentados.
+>
 > **Próximo paso concreto:** `VectorStore` sobre pgvector (Supabase, columna VECTOR(1024)),
-> y sobre eso el sistema de memoria (working/episodic/semantic) con RAG.
+> y sobre eso el sistema de memoria (working/episodic/semantic) con RAG, según D-0008.
 
 ## Fases
 
@@ -43,12 +48,20 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [ ] Dominio de tareas; disparo proactivo (jobs async).
 - [ ] Manejo determinístico de intenciones de tarea (sin LLM cuando se pueda).
 
-### Fase 3 — Frontend (dashboard + chat)
-- [ ] UI limpia con revelación progresiva.
-- [ ] Vista de costo/uso (transparencia del ahorro).
+### Fase 3 — Frontend web (dashboard + chat)
+- [ ] UI limpia con revelación progresiva; nada bloquea la primera pintura (skeletons, streaming).
+- [ ] Dashboard de costo (Bóveda) con desglose por niveles.
+- [ ] Bandeja de Jarvis (human-in-the-loop).
 
-### Fase 4 — Podcast automatizado
-- [ ] Por especificar con el usuario.
+### Fase 4 — App mobile (Expo/React Native)
+- [ ] Hub central + tabbar por módulo; offline-first.
+- [ ] Equivalentes mobile de Bóveda y Bandeja.
+
+### Fase 5 — Módulo Oráculo (podcast + noticiero)
+- [ ] Por especificar con el usuario. Primer módulo de negocio; MCP-ready para Córtex.
+
+### Fase 6+ — Cerebro Córtex y grafo temporal
+- [ ] Orquestador conversacional sobre módulos; memoria de grafo (Graphiti) si se justifica.
 
 ### Futuro (no comprometido)
 - Canal Telegram como adaptador, con políticas propias de contexto.

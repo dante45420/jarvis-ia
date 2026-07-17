@@ -68,18 +68,47 @@ Cada paso que evita el paso 6 es dinero ahorrado. Optimizar aquí es optimizar e
 
 ## Sistema de memoria
 
-La memoria es lo que hace a Jarvis "personal" y también lo que controla el costo del contexto.
-Cuatro tipos, cada uno con su estrategia de lectura/escritura:
+La memoria hace a Jarvis "personal" y es el mayor riesgo de costo. Regla mental: **log ≠
+memoria.** Ver decisión completa en `DECISIONS.md` (D-0008). Tres presupuestos separados:
 
+| Presupuesto | ¿Cuesta tokens? | Estrategia |
+|-------------|-----------------|------------|
+| **Guardar** (log crudo de turnos) | No (SQL) | Fuente de verdad. Nunca se inyecta entero. |
+| **Escribir memoria** (ascender del log) | Solo si usa IA | Escalera barata→cara; el LLM solo por lotes. |
+| **Inyectar** (armar el prompt) | Siempre | Presupuesto fijo de tokens, recorte determinístico. |
+
+### Escribir: escalera de lo barato a lo caro
+1. **Señales explícitas** (regex, $0): "recuerda que…", "me llamo…", "prefiero…".
+2. **Eventos estructurados** ($0): tareas, recordatorios, decisiones → tablas propias.
+3. **Heurística de salience** ($0): nombres, fechas, afirmaciones sobre el usuario → candidatos.
+4. **Extractor LLM** (último recurso): **por lotes, modelo barato, sobre una ventana** — nunca
+   mensaje por mensaje. Resumen **rodante y jerárquico** (turnos nuevos + resumen anterior),
+   así la entrada está acotada y el costo de escribir no crece sin límite.
+
+Solo lo que se **asciende** a memoria recuperable se embebe (una vez, medido). Antes de escribir:
+**dedup por similitud**. Cada memoria lleva `last_accessed`/`access_count` para **decaimiento**
+(archivar lo viejo no usado ⇒ recuperación afilada y barata).
+
+### Tipos de memoria
 | Tipo | Qué guarda | Escritura | Lectura |
 |------|-----------|-----------|---------|
-| **Working** | Turnos recientes de la conversación | Ventana acotada, automática | Directa (los últimos N) |
-| **Episodic** | Conversaciones pasadas resumidas + embebidas | Resumen batch con modelo barato | RAG por similitud |
-| **Semantic** | Hechos durables del usuario (perfil, preferencias) | Extracción determinística/barata | Estructurada + RAG |
-| **Procedural** | Rutinas y "cómo hacer" del usuario | Explícita | Por intención |
+| **Working** | Turnos recientes (~8 / ~1–2k tok) | Ventana deslizante | Directa |
+| **Episodic** | Conversaciones pasadas resumidas + embebidas | Resumen batch, modelo barato | RAG por similitud |
+| **Semantic** | Hechos durables del usuario | Determinística/barata | Estructurada + RAG |
+| **Procedural** | Rutinas y "cómo hacer" | Explícita | Por intención |
 
-Principios: escribir memoria con el método más barato disponible (determinístico > modelo
-barato > modelo capaz); leer siempre lo mínimo relevante, nunca todo.
+### Hechos graph-ready
+Los hechos durables se modelan como `sujeto–predicado–objeto + tiempo`, detrás del puerto
+`MemoryStore`. Hoy en Postgres; mañana un adaptador de grafo temporal (Graphiti) se alimenta
+del mismo pipeline de consolidación, sin reescritura. Es el sustrato del cerebro Córtex (D-0012).
+
+### Inyectar: contexto con presupuesto fijo
+Nunca "todo". Se arma por prioridad hasta llenar el tope de tokens; el recorte es determinístico
+(contamos y cortamos, sin LLM) y la recuperación es SQL sobre pgvector (cero IA):
+```
+[ system ]  →  [ ficha usuario ~300 tok ]  →  [ working ~8 turnos ]
+            →  [ RAG top-k (k=5, con umbral) ]  →  [ resumen episódico ]  →  [ mensaje ]
+```
 
 ## Telemetría de costo y dashboard
 
@@ -114,12 +143,49 @@ Nivel 3  →  click en un modelo → desglose por tarea, y ahorro por caché/det
 Cada nivel es una agregación SQL distinta sobre `UsageRecord`; la API expone un endpoint de
 consulta con filtros (rango, modelo, tarea) y el frontend solo pinta.
 
-## Frontend
+## Módulos (arquitectura de producto)
 
-- Revelación progresiva: el dashboard muestra lo esencial; el detalle vive en colapsables,
-  paneles laterales y menú hamburguesa. Se accede solo cuando se pide.
-- Habla con el backend por una API estable; no conoce proveedores ni modelos.
-- Estáticamente desplegable (barato).
+El producto es "muchas apps en una". Cada capacidad es un **módulo** = un job-to-be-done con su
+dominio de datos y su identidad de tabbar. Reglas de límites en `DECISIONS.md` (D-0009).
+
+- Cada módulo es un **slice vertical**: dominio + casos de uso + adaptadores + API + UI.
+- Cada módulo **expone sus capacidades como funciones tipadas** (tool-calling / MCP-ready), para
+  que el cerebro Córtex (D-0012) las invoque sin trabajo extra.
+- Nombres simples y épicos (una palabra): Oráculo (aprendizaje: podcast + noticiero), Bóveda
+  (contabilidad de IA), Córtex (cerebro futuro).
+
+**Piezas transversales (sistema, no módulos):**
+- **Contabilidad de IA:** el dashboard de costo (misma data en web y mobile).
+- **Bandeja de Jarvis (human-in-the-loop):** ítems que requieren aprobación/respuesta del
+  usuario. Contrato común "ítem que requiere al usuario" que cualquier módulo —o Córtex— emite.
+  Ordenable por módulo (luego por hora) o por hora de llegada; filtrable por ambos.
+
+## Frontend web
+
+- Revelación progresiva: se muestra lo esencial; el detalle vive en colapsables, paneles y menú
+  hamburguesa. Se accede solo cuando se pide.
+- **Nada bloquea la primera pintura:** shell instantáneo → skeletons → datos por streaming.
+  Módulos con lazy loading. UI optimista + feedback inmediato; sin spinners que congelen.
+- **Animación barata:** solo `transform`/`opacity` (GPU); librería `motion` + CSS. Nada que
+  toque layout o cueste RAM.
+- **Paleta:** base neutra + un acento, modo claro/oscuro. Presupuesto de rendimiento medido.
+- Habla con el backend por una API estable; no conoce proveedores ni modelos. Desplegable estático.
+
+## App mobile (Expo / React Native)
+
+Personal, offline-first, modular. Comparte modelo mental y código con la web.
+
+- **Hub central:** el ícono central del tabbar siempre vuelve al Hub; cada módulo reemplaza el
+  tabbar por el suyo ⇒ se siente como app propia.
+- **Offline-first:** cada módulo declara el mínimo que necesita sin señal (SQLite local) y
+  sincroniza al volver la red. Degrada, nunca se cae.
+- Mismos principios de rendimiento percibido y paleta que la web.
+
+## Cerebro Córtex (futuro, ver D-0012)
+
+Orquestador conversacional que llama a los módulos como herramientas y usa los hechos
+graph-ready como memoria. Motor: modelo Claude potente vía OpenRouter, detrás de `LLMProvider`.
+Se diseña desde ya (módulos MCP-ready, hechos graph-ready) para enchufarlo sin reescritura.
 
 ## Convenciones transversales
 - Errores y logs con contexto suficiente para depurar sin reproducir.
