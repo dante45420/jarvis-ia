@@ -1,0 +1,25 @@
+# Infraestructura de Jarvis en Render. El backend siempre encendido; la base y el storage en Supabase.
+services:
+  - type: web
+    name: jarvis-backend
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
+    healthCheckPath: /health
+    envVars:
+      - key: JARVIS_ENVIRONMENT
+        value: production
+      - key: JARVIS_GEMINI_API_KEY
+        sync: false
+      - key: JARVIS_OPENROUTER_API_KEY
+        sync: false
+      - key: JARVIS_DATABASE_URL
+        sync: false
+      - key: JARVIS_SUPABASE_URL
+        sync: false
+      - key: JARVIS_SUPABASE_SERVICE_KEY
+        sync: false
+      - key: JARVIS_SUPABASE_BUCKET
+        value: podcasts
+      - key: JARVIS_HERALDO_FEEDS
+        sync: false

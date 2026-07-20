@@ -487,5 +487,32 @@ inyecta proveedores reales y una forma de invocar capacidades por HTTP.
 **Alternativas descartadas.** Un endpoint por capacidad (no escala; el registro ya las describe);
 armar proveedores dentro de la API (rompe hexagonal); exigir Postgres para arrancar (fricción para
 probar el plumbing).
+
+---
+
+## D-0024 — Deploy: Render (Docker) + Supabase, monorepo con roots por servicio
+**Estado:** aceptada · Fase 5
+
+**Contexto.** Hay que dejar el backend corriendo en producción sin perder velocidad y sin separar
+el repo.
+
+**Decisión.** **Monorepo** con raíz por servicio (no afecta rapidez: cada build empaqueta solo su
+carpeta). Backend en **Render** vía Docker (`apps/backend/Dockerfile`, `dockerContext: apps/backend`,
+`render.yaml` en la raíz); corre `alembic upgrade head` al arrancar y luego uvicorn; health `/health`.
+Base y audio en **Supabase** (Postgres+pgvector vía `DATABASE_URL` directo al puerto 5432; bucket
+público `podcasts`). Secretos por variables de entorno (`sync: false`). Frontend en **Vercel** con
+*Root Directory* `apps/web` cuando exista. Runbook en `docs/DEPLOY.md`. Imagen Docker verificada
+localmente (build + boot + `/health` + `/modules`).
+
+**Alternativas descartadas.** Un repo por instancia (el monorepo con roots no impacta velocidad);
+pooler de Supabase (6543) para el backend persistente (problemas de prepared statements con asyncpg);
+migraciones a mano en cada deploy (el arranque del contenedor las aplica idempotente).
+
+---
+
+## Decisiones abiertas (pendientes)
+- **Selector de modelo dinámico (`ModelRouter`)**: refrescar el catálogo de OpenRouter a diario/semanal
+  para aprovechar modelos nuevos más baratos o temporalmente gratis, eligiendo el más barato capaz por
+  tarea. Ver `mejoras_importantes.md`. Se conecta al puerto `Completer`/pipeline costo-primero.
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.

@@ -59,10 +59,14 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > adaptador **Gemini directo** para el carril inmediato. El app arranca y expone las **9 capacidades**.
 > **94 tests + 7 de integración**, ruff + mypy strict en verde. Audio con adaptadores interinos.
 >
-> **Próximo paso (Heraldo):** cablear **TTS real** (Gemini/OpenRouter) + **Supabase Storage** para
-> audio real; **ruteo por urgencia** ("ya" Gemini directo / "económico" Gemini Batch 50%, D-0017);
-> luego más fuentes (Tavily/X/newsletters) + libro mayor. Prueba en vivo: pegar keys en `.env` y
-> llamar los endpoints. Memoria: consolidación (episodic) y decaimiento.
+> **Audio real + deploy listos** (D-0024): TTS por Gemini directo (PCM→WAV) + Supabase Storage;
+> Dockerfile + `render.yaml` + `docs/DEPLOY.md`; imagen Docker verificada (build + boot + endpoints).
+> **98 tests + 7 de integración**, ruff + mypy strict en verde. Heraldo está **listo para producción**.
+>
+> **Próximo paso:** desplegar siguiendo `docs/DEPLOY.md` (Render + Supabase) y probar en vivo con las
+> keys. Luego: **frontend web** (`apps/web` → Vercel) para consumir la API; **ruteo por urgencia**
+> ("ya"/"económico", D-0017); **selector de modelo dinámico** (`ModelRouter`, ver `mejoras_importantes.md`);
+> más fuentes (Tavily/X/newsletters) + libro mayor. Memoria: consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -128,7 +132,10 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [x] **Cableado real** (D-0023): composition root (`platform/composition.py`) + API genérica de
       capacidades (`GET /modules`, `POST /modules/{id}/capabilities/{name}`). Adaptador **Gemini
       directo** (LLMProvider) para el carril inmediato. App arranca y expone las 9 capacidades.
-- [ ] TTS real (Gemini/OpenRouter) + Supabase Storage (hoy adaptadores interinos de audio).
+- [x] **Audio real**: TTS por Gemini directo (PCM→WAV) + Supabase Storage (URL pública). La
+      composition usa los reales con keys, interinos si no.
+- [x] **Deploy listo** (D-0024): Dockerfile + `render.yaml` (root `apps/backend`) + `docs/DEPLOY.md`.
+      Imagen verificada (build + boot + `/health` + `/modules`). Migraciones al arrancar.
 - [ ] Ruteo por urgencia seleccionable: "ya" (Gemini directo) vs "económico" (Gemini Batch 50%).
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 
