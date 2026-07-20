@@ -14,7 +14,10 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     openrouter_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_text_model: str = "gemini-2.5-flash"
     database_url: str = ""
+    heraldo_feeds: str = ""
 
 
 @lru_cache

@@ -54,10 +54,15 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > hash**. Puerto `Completer` + `MeteredCompleter` (todo costo medido). **10 capacidades MCP-ready**,
 > **85 tests + 7 de integración**, ruff + mypy strict en verde.
 >
-> **Próximo paso (Heraldo):** el **podcast** — selección de qué profundizar → guion (narrador/diálogo)
-> + TTS (audio en Supabase Storage), con **ruteo por urgencia seleccionable** ("ya" por OpenRouter /
-> "económico" por Gemini Batch 50%, D-0017). En paralelo: más fuentes (Tavily/X/newsletters) + libro
-> mayor de fuentes. Falta conectar router/caché del pipeline costo-primero. Memoria: consolidación y decaimiento.
+> **Módulo Heraldo completo y cableado** (D-0023): productor de podcast (`compose_episode`) listo,
+> composition root + API genérica (`GET /modules`, `POST /modules/{id}/capabilities/{name}`), y
+> adaptador **Gemini directo** para el carril inmediato. El app arranca y expone las **9 capacidades**.
+> **94 tests + 7 de integración**, ruff + mypy strict en verde. Audio con adaptadores interinos.
+>
+> **Próximo paso (Heraldo):** cablear **TTS real** (Gemini/OpenRouter) + **Supabase Storage** para
+> audio real; **ruteo por urgencia** ("ya" Gemini directo / "económico" Gemini Batch 50%, D-0017);
+> luego más fuentes (Tavily/X/newsletters) + libro mayor. Prueba en vivo: pegar keys en `.env` y
+> llamar los endpoints. Memoria: consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -120,7 +125,10 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
       Fuentes determinísticas; capas hook→línea→puntos→detalle→porqué.
 - [x] **Podcast** (`compose_episode`): selección → guion en lote (narrador/diálogo, largo por
       duración) → TTS → audio alojado. Puertos `SpeechSynthesizer` y `AudioStorage`.
-- [ ] Cableado real: composition root + API + adaptadores (Gemini directo, TTS, Supabase).
+- [x] **Cableado real** (D-0023): composition root (`platform/composition.py`) + API genérica de
+      capacidades (`GET /modules`, `POST /modules/{id}/capabilities/{name}`). Adaptador **Gemini
+      directo** (LLMProvider) para el carril inmediato. App arranca y expone las 9 capacidades.
+- [ ] TTS real (Gemini/OpenRouter) + Supabase Storage (hoy adaptadores interinos de audio).
 - [ ] Ruteo por urgencia seleccionable: "ya" (Gemini directo) vs "económico" (Gemini Batch 50%).
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 

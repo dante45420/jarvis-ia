@@ -329,16 +329,18 @@ costo. Al verificar precios (jul-2026) se confirmó que **OpenRouter ya expone u
 `/audio/speech`** (compatible con OpenAI) con modelos TTS, incluido **Gemini 3.1 Flash TTS**.
 
 **Decisión.**
+- **Carril inmediato = Gemini directo:** como ya manejamos la key de Gemini, para lo inmediato se
+  llama **directo a Google**, no por OpenRouter, para no pagar su margen. OpenRouter queda como
+  **escape** para modelos no-Gemini o cuando salga más barato. Ambas keys en `.env`.
 - **Ruteo por urgencia (seleccionable por pedido):** el usuario elige el modo por cada generación:
-  **"ya"** (interactivo, precio full, por OpenRouter — para lo que quiere al momento) o
-  **"económico"** (Gemini **Batch API**, 50% off, asíncrono ~24h — para lo pre-generado). Regla:
-  *siempre que se pueda usar Gemini Batch, se usa* (50% off), salvo que exista en OpenRouter un
-  modelo que haga lo mismo más barato incluyendo ese 50% y con calidad al menos aceptable, o que
-  el usuario pida el resultado inmediato. **OpenRouter no tiene modo batch**; el batch va por la
-  API directa de Google (requiere Gemini key cuando se cablee). Todo tras el puerto `Completer`/TTS,
-  así el proveedor concreto se decide en el cableado sin tocar la lógica.
-- **Voz:** TTS detrás del puerto; OpenRouter ya expone TTS (incl. Gemini Flash TTS) para el modo
-  "ya"; el modo "económico" usará Gemini Batch cuando se agregue su adaptador.
+  **"ya"** (interactivo, Gemini directo — para lo que quiere al momento) o **"económico"** (Gemini
+  **Batch API**, 50% off, asíncrono ~24h — para lo pre-generado). Regla: *siempre que se pueda usar
+  Gemini Batch, se usa* (50% off), salvo que OpenRouter tenga algo más barato incluyendo ese 50% a
+  calidad aceptable, o que el usuario pida el resultado inmediato. **OpenRouter no tiene modo
+  batch**; el batch va por la API directa de Google. Todo tras el puerto `Completer`/TTS.
+- **Voz:** TTS detrás del puerto; hoy hay adaptadores interinos (`NullSpeechSynthesizer`,
+  `InMemoryAudioStorage`) para que el guion fluya de punta a punta; el TTS real (Gemini/OpenRouter)
+  y Supabase Storage se cablean como slice aparte con las keys.
 - **En vivo:** Tavily (agrega fuentes y extrae en una llamada; 1.000 consultas gratis/mes),
   detrás de un puerto de fuente.
 - **Podcast configurable por tema:** narrador o diálogo dos-voces.
@@ -465,6 +467,25 @@ tokens de entrada (el output es el cuello de botella); un límite global fijo (d
 
 ---
 
-## Decisiones abiertas (pendientes)
+## D-0023 — Composition root + API genérica de capacidades (estilo MCP)
+**Estado:** aceptada · Fase 5
+
+**Contexto.** El módulo se ensamblaba solo en tests. Para correrlo de verdad falta el punto que
+inyecta proveedores reales y una forma de invocar capacidades por HTTP.
+
+**Decisión.**
+- **Composition root** en `platform/composition.py`: único lugar que conoce proveedores concretos.
+  `build_registry(settings, client, engine)` arma el `ModuleRegistry`. Heraldo usa Gemini directo
+  (carril inmediato) tras `MeteredCompleter`; almacenes Postgres si hay `DATABASE_URL`, en memoria
+  si no (arranca sin base); fuentes RSS desde `JARVIS_HERALDO_FEEDS`.
+- **API genérica** en `interfaces/api.py`: `GET /modules` describe módulos y capacidades con su
+  esquema JSON (descubrimiento MCP-ready); `POST /modules/{id}/capabilities/{name}` valida e
+  invoca (404 si no existe, 422 si los argumentos no calzan). La API no conoce proveedores.
+- Recursos con red/DB (httpx, engine) viven en el **lifespan** de FastAPI; `create_app(registry=…)`
+  permite inyectar un registro con fakes en los tests.
+
+**Alternativas descartadas.** Un endpoint por capacidad (no escala; el registro ya las describe);
+armar proveedores dentro de la API (rompe hexagonal); exigir Postgres para arrancar (fricción para
+probar el plumbing).
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.
