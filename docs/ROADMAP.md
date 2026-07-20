@@ -24,10 +24,18 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > **Memoria (primer trozo) LISTA y verificada contra Postgres real** (docker, puerto configurable
 > vía `JARVIS_DB_PORT`): dominio de memoria, extracción determinística de hechos, contexto con
 > presupuesto, adaptador in-memory (unit) y pgvector (integración), Alembic con índice HNSW.
-> 25 tests verdes (2 de integración). Persistencia con SQLAlchemy 2.0 async, esquema con `owner_id`.
+> Persistencia con SQLAlchemy 2.0 async, esquema con `owner_id`.
 >
-> **Próximo paso:** empezar los **módulos** (D-0009). Falta aún, cuando se retome memoria:
-> consolidación por LLM (episodic) y job de decaimiento (los campos ya existen en `facts`).
+> **Módulos arrancados (Fase 5).** Contrato de módulos MCP-ready listo (`jarvis/modules/core.py`:
+> `Capability`/`Module`/`ScheduledJob`/`ModuleRegistry`, D-0015). Primer módulo **Heraldo**
+> (id `herald`, D-0016/D-0017): motor determinístico completo (normalizar URL → clustering con
+> alcance → filtro por recencia/keywords/alcance → ranking) y capacidad `gather_stories`
+> end-to-end. Todo sin IA, sin red. **39 tests verdes + 2 skip**, ruff + mypy strict en verde.
+>
+> **Próximo paso (Heraldo):** adaptadores de fuente reales tras `SourceAdapter` (RSS primero, luego
+> Tavily/X/newsletters) + libro mayor de fuentes; disección interactiva del tema (LLM, 1 vez);
+> persistencia de temas + máquina de pausa por tema; resumen por lote + plantillas de noticiero;
+> guion + TTS por Gemini Batch. Pendiente de memoria: consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -64,8 +72,16 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [ ] Hub central + tabbar por módulo; offline-first.
 - [ ] Equivalentes mobile de Bóveda y Bandeja.
 
-### Fase 5 — Módulo Oráculo (podcast + noticiero)
-- [ ] Por especificar con el usuario. Primer módulo de negocio; MCP-ready para Córtex.
+### Fase 5 — Módulo Heraldo (podcast + noticiero + búsqueda en vivo) ⏳ (en curso)
+- [x] Contrato de módulos MCP-ready (`Capability`/`Module`/`ScheduledJob`/`ModuleRegistry`).
+- [x] Motor agregador determinístico (normalizar → clustering/alcance → filtro → ranking).
+- [x] Capacidad `gather_stories` end-to-end con tests, sin IA ni red.
+- [ ] Adaptadores de fuente reales tras `SourceAdapter` (RSS → Tavily → X → newsletters).
+- [ ] Libro mayor de fuentes: costo por fuente + aporte (ítems, únicos, al output final).
+- [ ] Disección interactiva del tema (LLM, 1 vez) → `TopicProfile`.
+- [ ] Persistencia de temas + máquina de pausa por tema (acción a la Bandeja).
+- [ ] Resumen por lote (Gemini Batch) + plantillas de noticiero por tema.
+- [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 
 ### Fase 6+ — Cerebro Córtex y grafo temporal
 - [ ] Orquestador conversacional sobre módulos; memoria de grafo (Graphiti) si se justifica.

@@ -285,6 +285,66 @@ en async); IVFFlat (HNSW da mejor calidad/latencia a esta escala); single-user s
 
 ---
 
+## D-0015 — Contrato de módulos: capacidades tipadas MCP-ready + registro
+**Estado:** aceptada · Fase 5
+
+**Contexto.** Los módulos (D-0009) deben ser descubribles y orquestables por Córtex sin que
+este conozca sus detalles. Hay que fijar el contrato común antes del primer módulo.
+
+**Decisión.** Un módulo es una rebanada vertical que expone `Capability` (nombre, descripción,
+modelos Pydantic de entrada/salida y handler async) con `input_schema()` en JSON — **MCP-ready
+desde el día uno**. `Module` agrupa capacidades y `ScheduledJob` (trabajos proactivos); un
+`ModuleRegistry` los descubre. Vive en `jarvis/modules/core.py`. Córtex invocará capacidades
+por su esquema, sin acoplarse a la implementación.
+
+**Alternativas descartadas.** Handlers sueltos sin esquema (no orquestables por IA); acoplar
+módulos a FastAPI (rompe hexagonal; la API es solo otro invocador de capacidades).
+
+---
+
+## D-0016 — Módulo Heraldo: motor único agregador + dos carriles (async/sync)
+**Estado:** aceptada · Fase 5
+
+**Contexto.** El primer módulo (aprendizaje continuo) combina podcast programado, noticiero y
+búsqueda en vivo. Los tres piden lo mismo: reunir contenido de calidad de varias fuentes.
+
+**Decisión.** **Un solo motor agregador determinístico** alimenta a los tres consumidores.
+Pipeline sin IA: ingesta → normalizar URL → clustering (el **alcance = nº de fuentes
+independientes** sale del clustering) → filtrar (recencia, keywords, alcance) → rankear.
+Dos carriles: **asíncrono** (podcast + noticiero programado, todo por lote) y **síncrono**
+(en vivo, solo cuando se pide). La IA se reserva a 3 puntos: disección del tema (1 vez),
+resumen de clusters (por lote, con caché por hash) y guion del podcast. Nombre del módulo:
+**Heraldo** (id `herald`).
+
+**Alternativas descartadas.** Un pipeline por consumidor (duplica ingesta y dedup); resumir
+cada ítem en vez de cada cluster (más tokens); medir alcance con IA (el clustering lo da gratis).
+
+---
+
+## D-0017 — Proveedores de Heraldo: Gemini Batch TTS, Tavily en vivo, podcast por tema
+**Estado:** aceptada · Fase 5
+
+**Contexto.** Hay que elegir voz del podcast, motor de búsqueda en vivo y formato, minimizando
+costo. Precios verificados en jul-2026.
+
+**Decisión.**
+- **Voz:** Gemini Flash TTS por **Batch API (50% off, asíncrono)** — los podcasts se generan por
+  adelantado, así que el lote calza perfecto (~$0.075 por episodio de 10 min). Por verificar
+  antes de cablear: que Batch acepte salida TTS; el puerto tendrá `synthesize_batch` con caída a
+  TTS interactivo sin cambiar el diseño.
+- **En vivo:** Tavily (agrega fuentes y extrae en una llamada; 1.000 consultas gratis/mes),
+  detrás de un puerto de fuente.
+- **Podcast configurable por tema:** narrador o diálogo dos-voces (Gemini soporta multi-speaker).
+- **Fuentes primera ola:** RSS/APIs gratis + Tavily + X + newsletters, todas tras el puerto
+  `SourceAdapter`, con **libro mayor de fuentes**: costo (vía `UsageRecord`) y aporte
+  determinístico (ítems, ítems únicos, ítems al output final) para decidir si una fuente paga vale.
+
+**Alternativas descartadas.** ElevenLabs (10x más caro para uso personal); OpenAI TTS (bueno pero
+sin lote a 50%); Brave como motor en vivo primario (sin tier gratis desde feb-2026); medir el
+valor de una fuente con IA (las métricas de aporte son determinísticas).
+
+---
+
 ## Decisiones abiertas (pendientes)
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.
