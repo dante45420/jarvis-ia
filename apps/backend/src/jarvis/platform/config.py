@@ -16,8 +16,13 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     gemini_api_key: str = ""
     gemini_text_model: str = "gemini-2.5-flash"
+    gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
+    gemini_tts_voice: str = "Kore"
     database_url: str = ""
     heraldo_feeds: str = ""
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    supabase_bucket: str = "podcasts"
 
 
 @lru_cache

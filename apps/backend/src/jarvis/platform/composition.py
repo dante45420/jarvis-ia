@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from jarvis.adapters.audio import InMemoryAudioStorage, NullSpeechSynthesizer
 from jarvis.adapters.gemini import GeminiProvider
+from jarvis.adapters.gemini_tts import GeminiSpeechSynthesizer
 from jarvis.adapters.memory_usage_meter import InMemoryUsageMeter
+from jarvis.adapters.supabase_storage import SupabaseAudioStorage
 from jarvis.application.metered_completer import MeteredCompleter
 from jarvis.application.metered_completion import MeteredCompletion
 from jarvis.domain.pricing import PricingCatalog
@@ -30,6 +32,7 @@ from jarvis.modules.heraldo.news_cache import InMemoryNewsCardCache
 from jarvis.modules.heraldo.news_card import NewsCardService
 from jarvis.modules.heraldo.pg_deliveries import PgDeliveryStore
 from jarvis.modules.heraldo.pg_topics import PgTopicStore
+from jarvis.modules.heraldo.podcast import AudioStorage, SpeechSynthesizer
 from jarvis.modules.heraldo.podcast_service import PodcastService
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 from jarvis.modules.heraldo.sources.http_fetcher import HttpFeedFetcher
@@ -53,17 +56,36 @@ def _build_heraldo(
     """Ensambla el módulo Heraldo inyectando proveedores y almacenes reales."""
     completer = _completer(settings, client)
     topics, deliveries = _stores(engine)
+    podcast = PodcastService(completer, _synthesizer(settings, client), _storage(settings, client))
     deps = HeraldoDeps(
         gather=_gather(settings, client),
         topics=topics,
         deliveries=deliveries,
         dissection=DissectionService(completer),
         news_cards=NewsCardService(completer, InMemoryNewsCardCache()),
-        podcast=PodcastService(completer, NullSpeechSynthesizer(), InMemoryAudioStorage()),
+        podcast=podcast,
         clock=_utcnow,
         new_id=_new_id,
     )
     return build_heraldo_module(deps)
+
+
+def _synthesizer(settings: Settings, client: httpx.AsyncClient) -> SpeechSynthesizer:
+    """TTS real por Gemini si hay key; si no, el interino que devuelve audio vacío."""
+    if not settings.gemini_api_key:
+        return NullSpeechSynthesizer()
+    return GeminiSpeechSynthesizer(
+        settings.gemini_api_key, client, settings.gemini_tts_model, settings.gemini_tts_voice
+    )
+
+
+def _storage(settings: Settings, client: httpx.AsyncClient) -> AudioStorage:
+    """Supabase Storage si está configurado; si no, el almacenamiento interino en memoria."""
+    if not (settings.supabase_url and settings.supabase_service_key):
+        return InMemoryAudioStorage()
+    return SupabaseAudioStorage(
+        settings.supabase_url, settings.supabase_service_key, settings.supabase_bucket, client
+    )
 
 
 def _completer(settings: Settings, client: httpx.AsyncClient) -> MeteredCompleter:
