@@ -44,10 +44,17 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > `platform/orm.py`. Módulo ensamblado con `HeraldoDeps`. **61 tests + 7 de integración** (verdes con
 > DB), ruff + mypy strict OK.
 >
-> **Próximo paso (Heraldo):** **scheduler** que por cada tema activo consulta la última entrega y
-> corre `PauseController` (generar o pausar); luego disección interactiva del tema (LLM, 1 vez,
-> primer uso de IA) → `TopicProfile`; más fuentes (Tavily/X/newsletters) + libro mayor; resumen por
-> lote + plantillas; guion + TTS por Gemini Batch. Pendiente de memoria: consolidación y decaimiento.
+> **Scheduler determinístico listo** (`TopicScheduler`): recorre temas activos, consulta la última
+> entrega y aplica `PauseController`; devuelve los temas a generar y pausa los que tienen pendiente.
+> Test confirma que pausar un tema no bloquea a otro. **65 tests + 7 de integración**, todo verde.
+>
+> **Con esto el carril asíncrono determinístico está completo** (motor + fuentes RSS + persistencia
+> + pausa + scheduler). Falta el productor real (resumen + guion + TTS) y el primer uso de IA.
+>
+> **Próximo paso (Heraldo):** disección interactiva del tema (LLM, 1 vez, **primer uso de IA** →
+> pipeline costo-primero) que arma el `TopicProfile` conversando; luego más fuentes
+> (Tavily/X/newsletters) + libro mayor; resumen por lote + plantillas; guion + TTS por Gemini Batch.
+> Pendiente de memoria: consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -98,7 +105,8 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
       migración `0002` + capacidades `create_topic`/`list_topics`. Verificado contra Postgres real.
 - [x] Persistencia de **entregas** (`Delivery`): puerto `DeliveryStore` (in-memory + Postgres),
       migración `0003`, capacidades `record_delivery`/`mark_delivery_consumed`. Verificado con DB real.
-- [ ] Scheduler: por cada tema activo, consultar última entrega + `PauseController` → generar o pausar.
+- [x] Scheduler determinístico (`TopicScheduler`): por cada tema activo consulta la última entrega
+      y aplica `PauseController` → devuelve los temas a generar y pausa los que tienen pendiente.
 - [ ] Resumen por lote (Gemini Batch) + plantillas de noticiero por tema.
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 

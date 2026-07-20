@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from jarvis.modules.actions import ModuleAction
 from jarvis.modules.heraldo.domain import RawItem
 from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.in_memory_deliveries import InMemoryDeliveryStore
@@ -14,6 +15,16 @@ from jarvis.modules.heraldo.ports import SourceQuery
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 
 _DEFAULT_NOW = datetime(2026, 7, 20, tzinfo=UTC)
+
+
+class FakeInbox:
+    """Bandeja falsa que acumula las acciones emitidas, para verificarlas en los tests."""
+
+    def __init__(self) -> None:
+        self.actions: list[ModuleAction] = []
+
+    async def emit(self, action: ModuleAction) -> None:
+        self.actions.append(action)
 
 
 class FakeSource:
