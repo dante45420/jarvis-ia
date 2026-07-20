@@ -6,13 +6,11 @@ from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
+
+from jarvis.platform.orm import Base
 
 EMBEDDING_DIMENSIONS = 1024
-
-
-class Base(DeclarativeBase):
-    """Base declarativa de todos los modelos."""
 
 
 class ConversationTurnRow(Base):

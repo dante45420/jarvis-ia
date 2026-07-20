@@ -36,14 +36,17 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > `HttpFeedFetcher` (httpx) tras `FeedFetcher`; resiliente a feeds caídos. Ya alimenta al motor.
 >
 > **Máquina de pausa por tema lista** (pura): `decide_generation` (GENERATE/PAUSE/HOLD) +
-> `PauseController` que avisa a la Bandeja vía el puerto `ActionInbox` (semilla de la Bandeja en
-> `modules/actions.py`). Pausa al haber 1 entrega sin consumir; consumido = abrir/reproducir.
+> `PauseController` que avisa a la Bandeja vía el puerto `ActionInbox`.
 >
-> **Próximo paso (Heraldo):** persistencia de temas y entregas (SQLAlchemy + Alembic) tras un
-> puerto propio, para que la pausa y el scheduler operen sobre datos reales; luego disección
-> interactiva del tema (LLM, 1 vez) → `TopicProfile`; más fuentes (Tavily/X/newsletters) + libro
-> mayor; resumen por lote + plantillas; guion + TTS por Gemini Batch. Pendiente de memoria:
-> consolidación (episodic) y decaimiento.
+> **Persistencia de temas lista y verificada contra Postgres real.** Puerto `TopicStore`
+> (in-memory + `PgTopicStore`), migración `0002_heraldo_topics`, capacidades `create_topic` y
+> `list_topics`. `Base` declarativa movida a `platform/orm.py` (compartida por todos los modelos).
+> **55 tests + 5 de integración** (todos verdes con DB), ruff + mypy strict OK.
+>
+> **Próximo paso (Heraldo):** persistir **entregas** (`Delivery`) para que la pausa opere sobre
+> datos reales; luego disección interactiva del tema (LLM, 1 vez, primer uso de IA) → `TopicProfile`;
+> más fuentes (Tavily/X/newsletters) + libro mayor; resumen por lote + plantillas; guion + TTS por
+> Gemini Batch. Pendiente de memoria: consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -90,7 +93,9 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [ ] Disección interactiva del tema (LLM, 1 vez) → `TopicProfile`.
 - [x] Máquina de **pausa por tema** (pura, cero IA): pausa al haber 1 entrega sin consumir
       (consumido = abrir/reproducir), independiente entre temas, deja acción en la Bandeja.
-- [ ] Persistencia de temas y entregas (SQLAlchemy + Alembic) tras un puerto propio.
+- [x] Persistencia de **temas** (puerto `TopicStore`; adaptadores in-memory y Postgres) +
+      migración `0002` + capacidades `create_topic`/`list_topics`. Verificado contra Postgres real.
+- [ ] Persistencia de **entregas** (`Delivery`) para que la pausa opere sobre datos reales.
 - [ ] Resumen por lote (Gemini Batch) + plantillas de noticiero por tema.
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 

@@ -7,9 +7,11 @@ import asyncio
 from alembic import context
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from jarvis.adapters.db_models import Base
+from jarvis.adapters import db_models  # noqa: F401  (registra tablas de memoria en la metadata)
+from jarvis.modules.heraldo import db_models as heraldo_models  # noqa: F401  (registra topics)
 from jarvis.platform.config import get_settings
 from jarvis.platform.db import create_engine
+from jarvis.platform.orm import Base
 
 target_metadata = Base.metadata
 

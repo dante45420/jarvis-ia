@@ -14,10 +14,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from jarvis.adapters.db_models import Base
 from jarvis.adapters.pgvector_memory import PgVectorMemoryStore
 from jarvis.domain.memory import ConversationTurn, EmbeddedFact, Fact
 from jarvis.platform.db import create_engine, create_session_factory
+from jarvis.platform.orm import Base
 
 DATABASE_URL = os.environ.get("JARVIS_TEST_DATABASE_URL")
 NOW = datetime(2026, 7, 17, tzinfo=UTC)
