@@ -9,12 +9,15 @@ from datetime import datetime
 from jarvis.modules.core import Capability, CapabilityHandler, Module
 from jarvis.modules.heraldo.dissection import DissectionService, QuestionAnswer
 from jarvis.modules.heraldo.gather import GatherService
+from jarvis.modules.heraldo.news_card import NewsCardService
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 from jarvis.modules.heraldo.schemas import (
     CompileProfileInput,
     CompileProfileOutput,
     CreateTopicInput,
     CreateTopicOutput,
+    DeepenStoriesInput,
+    DeepenStoriesOutput,
     GatherInput,
     GatherOutput,
     ListTopicsInput,
@@ -26,9 +29,11 @@ from jarvis.modules.heraldo.schemas import (
     RecordDeliveryInput,
     RecordDeliveryOutput,
     build_topic,
+    to_card_dto,
     to_delivery,
     to_delivery_dto,
     to_profile,
+    to_seed,
     to_story,
     to_topic,
     to_topic_dto,
@@ -46,6 +51,7 @@ class HeraldoDeps:
     topics: TopicStore
     deliveries: DeliveryStore
     dissection: DissectionService
+    news_cards: NewsCardService
     clock: Clock
     new_id: IdFactory
 
@@ -62,9 +68,20 @@ def build_heraldo_module(deps: HeraldoDeps) -> Module:
             _create_topic_capability(deps),
             _list_topics_capability(deps),
             _gather_capability(deps),
+            _deepen_stories_capability(deps),
             _record_delivery_capability(deps),
             _mark_consumed_capability(deps),
         ),
+    )
+
+
+def _deepen_stories_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="deepen_stories",
+        description="Profundiza historias elegidas en tarjetas por capas; IA solo en las nuevas.",
+        input_model=DeepenStoriesInput,
+        output_model=DeepenStoriesOutput,
+        handler=_deepen_stories_handler(deps),
     )
 
 
@@ -153,6 +170,15 @@ def _compile_profile_handler(deps: HeraldoDeps) -> CapabilityHandler:
         topic = build_topic(args.owner_id, args.name, profile, args.podcast_style, deps.new_id())
         await deps.topics.save(topic)
         return CompileProfileOutput(topic=to_topic_dto(topic))
+
+    return handle
+
+
+def _deepen_stories_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: DeepenStoriesInput) -> DeepenStoriesOutput:
+        seeds = [to_seed(story) for story in args.stories]
+        cards = await deps.news_cards.deepen(seeds, deps.clock())
+        return DeepenStoriesOutput(cards=[to_card_dto(card) for card in cards])
 
     return handle
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime
 from typing import Literal
 
@@ -15,16 +16,25 @@ from jarvis.modules.heraldo.domain import (
     TopicProfile,
     TopicState,
 )
+from jarvis.modules.heraldo.news import NewsCard, StorySeed
+from jarvis.modules.heraldo.normalize import canonical_url
 
 
 class StoryDTO(BaseModel):
-    """Una historia lista para mostrar: título, enlace, alcance y sus fuentes."""
+    """Una historia del menú: id estable, título, extracto, enlace, alcance y fuentes."""
 
+    id: str
     title: str
+    snippet: str
     url: str
     reach: int
     sources: list[str]
     latest: datetime
+
+
+def story_id_for(url: str) -> str:
+    """Id estable de una historia a partir de su URL canónica; sirve de clave de caché."""
+    return hashlib.sha1(canonical_url(url).encode()).hexdigest()[:16]
 
 
 class GatherInput(BaseModel):
@@ -55,10 +65,13 @@ def to_profile(data: GatherInput) -> TopicProfile:
 
 
 def to_story(cluster: Cluster) -> StoryDTO:
-    """Traduce una historia del dominio al DTO de salida."""
+    """Traduce una historia del dominio al DTO del menú, con su id estable."""
+    representative = cluster.representative
     return StoryDTO(
-        title=cluster.representative.title,
-        url=cluster.representative.url,
+        id=story_id_for(representative.url),
+        title=representative.title,
+        snippet=representative.snippet,
+        url=representative.url,
         reach=cluster.reach,
         sources=sorted({member.source_name for member in cluster.members}),
         latest=cluster.latest,
@@ -235,4 +248,62 @@ def to_delivery_dto(delivery: Delivery) -> DeliveryDTO:
         kind=delivery.kind.value,
         created_at=delivery.created_at,
         consumed=delivery.is_consumed,
+    )
+
+
+class StorySeedInput(BaseModel):
+    """Una historia seleccionada para profundizar; el cliente la reenvía desde el menú."""
+
+    id: str
+    title: str
+    snippet: str = ""
+    url: str
+    sources: list[str] = Field(default_factory=list)
+
+
+class NewsCardDTO(BaseModel):
+    """Una tarjeta de noticia por capas, de lo más resumido a lo más detallado."""
+
+    story_id: str
+    hook: str
+    one_line: str
+    key_points: list[str]
+    detail: str
+    why_it_matters: str
+    sources: list[str]
+
+
+class DeepenStoriesInput(BaseModel):
+    """Argumentos para profundizar las historias que seleccionaste (0 a todas)."""
+
+    stories: list[StorySeedInput]
+
+
+class DeepenStoriesOutput(BaseModel):
+    """Las tarjetas por capas de las historias seleccionadas."""
+
+    cards: list[NewsCardDTO]
+
+
+def to_seed(data: StorySeedInput) -> StorySeed:
+    """Construye la semilla de dominio a partir de la historia seleccionada."""
+    return StorySeed(
+        id=data.id,
+        title=data.title,
+        snippet=data.snippet,
+        url=data.url,
+        sources=tuple(data.sources),
+    )
+
+
+def to_card_dto(card: NewsCard) -> NewsCardDTO:
+    """Traduce una tarjeta de dominio a su DTO de salida."""
+    return NewsCardDTO(
+        story_id=card.story_id,
+        hook=card.hook,
+        one_line=card.one_line,
+        key_points=list(card.key_points),
+        detail=card.detail,
+        why_it_matters=card.why_it_matters,
+        sources=list(card.sources),
     )

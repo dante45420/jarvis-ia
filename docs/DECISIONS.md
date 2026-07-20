@@ -329,11 +329,16 @@ costo. Al verificar precios (jul-2026) se confirmó que **OpenRouter ya expone u
 `/audio/speech`** (compatible con OpenAI) con modelos TTS, incluido **Gemini 3.1 Flash TTS**.
 
 **Decisión.**
-- **Voz:** **TTS por OpenRouter** (p. ej. Gemini Flash TTS) detrás del puerto de TTS. Un solo
-  gateway/key para texto y audio, todo medido por nuestra telemetría. Precio interactivo
-  (~$0.15 por episodio de 10 min). **OpenRouter no tiene modo batch**, así que el descuento
-  50% off (exclusivo de la API directa de Google) queda como **optimización futura**: si el
-  volumen lo justifica, se agrega un adaptador Gemini-Batch tras el mismo puerto, sin más cambios.
+- **Ruteo por urgencia (seleccionable por pedido):** el usuario elige el modo por cada generación:
+  **"ya"** (interactivo, precio full, por OpenRouter — para lo que quiere al momento) o
+  **"económico"** (Gemini **Batch API**, 50% off, asíncrono ~24h — para lo pre-generado). Regla:
+  *siempre que se pueda usar Gemini Batch, se usa* (50% off), salvo que exista en OpenRouter un
+  modelo que haga lo mismo más barato incluyendo ese 50% y con calidad al menos aceptable, o que
+  el usuario pida el resultado inmediato. **OpenRouter no tiene modo batch**; el batch va por la
+  API directa de Google (requiere Gemini key cuando se cablee). Todo tras el puerto `Completer`/TTS,
+  así el proveedor concreto se decide en el cableado sin tocar la lógica.
+- **Voz:** TTS detrás del puerto; OpenRouter ya expone TTS (incl. Gemini Flash TTS) para el modo
+  "ya"; el modo "económico" usará Gemini Batch cuando se agregue su adaptador.
 - **En vivo:** Tavily (agrega fuentes y extrae en una llamada; 1.000 consultas gratis/mes),
   detrás de un puerto de fuente.
 - **Podcast configurable por tema:** narrador o diálogo dos-voces.
@@ -436,6 +441,27 @@ pausa difiere del podcast.
 **Alternativas descartadas.** Resumir todas las noticias con IA (gasta en lo que no te interesa);
 tarjeta de un bloque largo (mala para déficit de atención); una llamada por capa al expandir (más
 tokens sin ganancia); misma regla de pausa que el podcast (el usuario la quiere más laxa).
+
+---
+
+## D-0022 — Protocolo de batching inteligente (troceo por 3 topes) + IA perezosa con caché
+**Estado:** aceptada · Fase 5
+
+**Contexto.** Batching obligatorio (D-0011), pero meter demasiados ítems en una llamada degrada
+la calidad, hace alucinar y puede reventar el contexto. El tope de **salida** suele ser el más
+apretado (cada ítem genera respuesta). El límite seguro depende del proveedor/modelo.
+
+**Decisión.**
+- **`plan_batches` (en `application/batching.py`)** trocea una lista en lotes respetando **tres
+  topes** por proveedor/modelo (`BatchLimits`): máximo de ítems, de **tokens de entrada** y de
+  **tokens de salida**. Cada ítem declara su `ItemCost(input_tokens, output_tokens)`. Los lotes se
+  procesan en paralelo. Reutilizable por cualquier operación batcheable.
+- **IA perezosa + caché:** solo se procesa lo que el usuario elige; el resultado se cachea por id
+  (hash de la URL en el caso de noticias) para no reprocesar. Primer uso: `NewsCardService`
+  (tarjetas del noticiero) con `max_items=8`, `max_input=6000`, `max_output=2000` por defecto.
+
+**Alternativas descartadas.** Batching ingenuo sin tope (alucina / revienta contexto); contar solo
+tokens de entrada (el output es el cuello de botella); un límite global fijo (depende del proveedor).
 
 ---
 

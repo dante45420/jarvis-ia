@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from jarvis.domain.llm import Message
 from jarvis.modules.heraldo.domain import TopicProfile
+from jarvis.modules.heraldo.jsonio import extract_json_object
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +45,7 @@ class DissectionService:
         """Genera preguntas dirigidas para acotar el tema."""
         prompt = _questions_prompt(topic_name)
         text = await self._completer.complete("dissect_questions", prompt, now)
-        return _QuestionsDraft.model_validate_json(_extract_json(text)).questions
+        return _QuestionsDraft.model_validate_json(extract_json_object(text)).questions
 
     async def compile_profile(
         self, topic_name: str, answers: list[QuestionAnswer], now: datetime
@@ -53,7 +54,7 @@ class DissectionService:
         text = await self._completer.complete(
             "dissect_profile", _profile_prompt(topic_name, answers), now
         )
-        return _to_profile(_ProfileDraft.model_validate_json(_extract_json(text)))
+        return _to_profile(_ProfileDraft.model_validate_json(extract_json_object(text)))
 
 
 class _QuestionsDraft(BaseModel):
@@ -109,12 +110,3 @@ def _answers_block(topic_name: str, answers: list[QuestionAnswer]) -> str:
     lines = [f"Tema: {topic_name}", "Respuestas:"]
     lines += [f"- {item.question} -> {item.answer}" for item in answers]
     return "\n".join(lines)
-
-
-def _extract_json(text: str) -> str:
-    """Recorta el objeto JSON del texto, tolerando envoltorios o cercas de código."""
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1:
-        return text
-    return text[start : end + 1]

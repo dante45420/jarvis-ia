@@ -13,6 +13,8 @@ from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.in_memory_deliveries import InMemoryDeliveryStore
 from jarvis.modules.heraldo.in_memory_topics import InMemoryTopicStore
 from jarvis.modules.heraldo.module import HeraldoDeps
+from jarvis.modules.heraldo.news_cache import InMemoryNewsCardCache
+from jarvis.modules.heraldo.news_card import NewsCardService
 from jarvis.modules.heraldo.ports import SourceQuery
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 
@@ -83,6 +85,7 @@ def make_deps(
     topics: TopicStore | None = None,
     deliveries: DeliveryStore | None = None,
     dissection: DissectionService | None = None,
+    news_cards: NewsCardService | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], str] | None = None,
 ) -> HeraldoDeps:
@@ -92,6 +95,7 @@ def make_deps(
         topics=topics or InMemoryTopicStore(),
         deliveries=deliveries or InMemoryDeliveryStore(),
         dissection=dissection or DissectionService(FakeCompleter()),
+        news_cards=news_cards or NewsCardService(FakeCompleter(), InMemoryNewsCardCache()),
         clock=clock or (lambda: _DEFAULT_NOW),
         new_id=new_id or (lambda: "id-1"),
     )

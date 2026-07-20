@@ -48,15 +48,16 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > entrega y aplica `PauseController`; devuelve los temas a generar y pausa los que tienen pendiente.
 > Test confirma que pausar un tema no bloquea a otro. **65 tests + 7 de integración**, todo verde.
 >
-> **Disección interactiva lista** (D-0020, **primer uso de IA**): `propose_topic_questions` +
-> `compile_topic_profile` (2 llamadas medidas, salida JSON validada con Pydantic). Puerto
-> `Completer` + adaptador `MeteredCompleter` (`application/`) que enruta por `MeteredCompletion`,
-> así todo costo queda registrado. **9 capacidades MCP-ready**, 71 tests + 7 de integración.
+> **Disección interactiva** (D-0020, primer uso de IA) y **productor del noticiero** (D-0021/D-0022)
+> listos. `deepen_stories` arma tarjetas por capas con **IA perezosa** (solo lo seleccionado),
+> **batching inteligente** (`plan_batches`: troceo por ítems/tokens-in/tokens-out) y **caché por
+> hash**. Puerto `Completer` + `MeteredCompleter` (todo costo medido). **10 capacidades MCP-ready**,
+> **85 tests + 7 de integración**, ruff + mypy strict en verde.
 >
-> **Próximo paso (Heraldo):** el **productor de contenido** — resumen por lote (Gemini Batch) de los
-> clusters + plantillas de noticiero; luego guion (narrador/diálogo) + TTS por Gemini Batch. En
-> paralelo: más fuentes (Tavily/X/newsletters) + libro mayor de fuentes. Falta también conectar el
-> pipeline costo-primero (router/caché) al `Completer`. Pendiente de memoria: consolidación y decaimiento.
+> **Próximo paso (Heraldo):** el **podcast** — selección de qué profundizar → guion (narrador/diálogo)
+> + TTS (audio en Supabase Storage), con **ruteo por urgencia seleccionable** ("ya" por OpenRouter /
+> "económico" por Gemini Batch 50%, D-0017). En paralelo: más fuentes (Tavily/X/newsletters) + libro
+> mayor de fuentes. Falta conectar router/caché del pipeline costo-primero. Memoria: consolidación y decaimiento.
 
 ## Fases
 
@@ -113,10 +114,12 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
       y aplica `PauseController` → devuelve los temas a generar y pausa los que tienen pendiente.
 - [x] Política de pausa de **noticias** por ventana (`decide_news_generation`, 3 días sin respuesta;
       cualquier respuesta reinicia). Distinta de la estricta del podcast (D-0021).
-- [ ] Menú de opciones: el motor ofrece X candidatos con id estable; seleccionas 0..N a profundizar.
-- [ ] Noticiero: tarjeta por capas (IA solo en lo seleccionado, caché por hash) vía OpenRouter.
-- [ ] Podcast: selección de qué profundizar → guion (narrador/diálogo) + TTS por OpenRouter;
-      audio en Supabase Storage.
+- [x] Menú de opciones: `gather_stories` da candidatos con **id estable** (hash de URL) + extracto.
+- [x] **Noticiero: tarjeta por capas** (`deepen_stories`): IA perezosa (solo lo seleccionado),
+      **batching inteligente** (troceo por ítems/tokens-in/tokens-out, D-0022) y **caché por hash**.
+      Fuentes determinísticas; capas hook→línea→puntos→detalle→porqué.
+- [ ] Ruteo por urgencia seleccionable: modo "ya" (OpenRouter) vs "económico" (Gemini Batch 50%).
+- [ ] Podcast: selección de qué profundizar → guion (narrador/diálogo) + TTS; audio en Supabase Storage.
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 
 ### Fase 6+ — Cerebro Córtex y grafo temporal
