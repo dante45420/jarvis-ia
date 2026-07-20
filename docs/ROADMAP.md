@@ -32,10 +32,13 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > alcance → filtro por recencia/keywords/alcance → ranking) y capacidad `gather_stories`
 > end-to-end. Todo sin IA, sin red. **39 tests verdes + 2 skip**, ruff + mypy strict en verde.
 >
-> **Próximo paso (Heraldo):** adaptadores de fuente reales tras `SourceAdapter` (RSS primero, luego
-> Tavily/X/newsletters) + libro mayor de fuentes; disección interactiva del tema (LLM, 1 vez);
-> persistencia de temas + máquina de pausa por tema; resumen por lote + plantillas de noticiero;
-> guion + TTS por Gemini Batch. Pendiente de memoria: consolidación (episodic) y decaimiento.
+> **Adaptador RSS/Atom listo** (D-0018): `parse_feed` puro (feedparser, testeable sin red) +
+> `HttpFeedFetcher` (httpx) tras `FeedFetcher`; resiliente a feeds caídos. Ya alimenta al motor.
+>
+> **Próximo paso (Heraldo):** persistencia de temas + máquina de pausa por tema (un tema pausado
+> no frena a otro); disección interactiva del tema (LLM, 1 vez) → `TopicProfile`; luego más fuentes
+> (Tavily/X/newsletters) + libro mayor; resumen por lote + plantillas; guion + TTS por Gemini Batch.
+> Pendiente de memoria: consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -76,7 +79,8 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [x] Contrato de módulos MCP-ready (`Capability`/`Module`/`ScheduledJob`/`ModuleRegistry`).
 - [x] Motor agregador determinístico (normalizar → clustering/alcance → filtro → ranking).
 - [x] Capacidad `gather_stories` end-to-end con tests, sin IA ni red.
-- [ ] Adaptadores de fuente reales tras `SourceAdapter` (RSS → Tavily → X → newsletters).
+- [x] Adaptador de fuente **RSS/Atom** (feedparser) tras `SourceAdapter`: parseo puro + descarga httpx.
+- [ ] Más adaptadores de fuente (Tavily → X → newsletters) tras el mismo puerto.
 - [ ] Libro mayor de fuentes: costo por fuente + aporte (ítems, únicos, al output final).
 - [ ] Disección interactiva del tema (LLM, 1 vez) → `TopicProfile`.
 - [ ] Persistencia de temas + máquina de pausa por tema (acción a la Bandeja).

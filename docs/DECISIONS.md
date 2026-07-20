@@ -345,6 +345,21 @@ valor de una fuente con IA (las métricas de aporte son determinísticas).
 
 ---
 
+## D-0018 — Parseo de feeds con feedparser
+**Estado:** aceptada · Fase 5
+
+**Contexto.** El adaptador RSS debe leer la realidad desordenada de RSS 2.0, RSS 1.0 y Atom, con
+variantes de fecha y encoding. Escribir eso a mano es frágil.
+
+**Decisión.** Usar **feedparser** (estándar de facto en Python) para parsear. Queda aislado en
+`sources/rss.py`: `parse_feed(xml, fallback, now)` es puro y no toca la red (testeable con
+fixtures); la descarga vive en `HttpFeedFetcher` (httpx), inyectable tras `FeedFetcher`.
+
+**Alternativas descartadas.** Parseo a mano con lxml/ElementTree (reinventa el manejo de las
+variantes y fechas, sin ganancia real).
+
+---
+
 ## Decisiones abiertas (pendientes)
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.
