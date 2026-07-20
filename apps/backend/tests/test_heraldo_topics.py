@@ -11,9 +11,9 @@ from jarvis.modules.heraldo.domain import (
     TopicProfile,
     TopicState,
 )
-from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.in_memory_topics import InMemoryTopicStore
 from jarvis.modules.heraldo.module import build_heraldo_module
+from tests.heraldo_fakes import make_deps
 
 NOW = datetime(2026, 7, 20, tzinfo=UTC)
 _PROFILE = TopicProfile(("ia",), (), (), reach_threshold=1, recency_hours=48)
@@ -31,9 +31,7 @@ def _topic(topic_id: str, owner: str, state: TopicState = TopicState.ACTIVE) -> 
 
 
 def _module(store: InMemoryTopicStore) -> Module:
-    return build_heraldo_module(
-        GatherService([]), store, clock=lambda: NOW, new_id=lambda: "topic-1"
-    )
+    return build_heraldo_module(make_deps(topics=store, new_id=lambda: "topic-1"))
 
 
 async def test_store_saves_and_recovers_topic() -> None:

@@ -38,15 +38,16 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > **Máquina de pausa por tema lista** (pura): `decide_generation` (GENERATE/PAUSE/HOLD) +
 > `PauseController` que avisa a la Bandeja vía el puerto `ActionInbox`.
 >
-> **Persistencia de temas lista y verificada contra Postgres real.** Puerto `TopicStore`
-> (in-memory + `PgTopicStore`), migración `0002_heraldo_topics`, capacidades `create_topic` y
-> `list_topics`. `Base` declarativa movida a `platform/orm.py` (compartida por todos los modelos).
-> **55 tests + 5 de integración** (todos verdes con DB), ruff + mypy strict OK.
+> **Persistencia de temas y entregas lista y verificada contra Postgres real.** Puertos
+> `TopicStore` y `DeliveryStore` (in-memory + Postgres), migraciones `0002`/`0003`, capacidades
+> `create_topic`, `list_topics`, `record_delivery`, `mark_delivery_consumed`. `Base` declarativa en
+> `platform/orm.py`. Módulo ensamblado con `HeraldoDeps`. **61 tests + 7 de integración** (verdes con
+> DB), ruff + mypy strict OK.
 >
-> **Próximo paso (Heraldo):** persistir **entregas** (`Delivery`) para que la pausa opere sobre
-> datos reales; luego disección interactiva del tema (LLM, 1 vez, primer uso de IA) → `TopicProfile`;
-> más fuentes (Tavily/X/newsletters) + libro mayor; resumen por lote + plantillas; guion + TTS por
-> Gemini Batch. Pendiente de memoria: consolidación (episodic) y decaimiento.
+> **Próximo paso (Heraldo):** **scheduler** que por cada tema activo consulta la última entrega y
+> corre `PauseController` (generar o pausar); luego disección interactiva del tema (LLM, 1 vez,
+> primer uso de IA) → `TopicProfile`; más fuentes (Tavily/X/newsletters) + libro mayor; resumen por
+> lote + plantillas; guion + TTS por Gemini Batch. Pendiente de memoria: consolidación y decaimiento.
 
 ## Fases
 
@@ -95,7 +96,9 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
       (consumido = abrir/reproducir), independiente entre temas, deja acción en la Bandeja.
 - [x] Persistencia de **temas** (puerto `TopicStore`; adaptadores in-memory y Postgres) +
       migración `0002` + capacidades `create_topic`/`list_topics`. Verificado contra Postgres real.
-- [ ] Persistencia de **entregas** (`Delivery`) para que la pausa opere sobre datos reales.
+- [x] Persistencia de **entregas** (`Delivery`): puerto `DeliveryStore` (in-memory + Postgres),
+      migración `0003`, capacidades `record_delivery`/`mark_delivery_consumed`. Verificado con DB real.
+- [ ] Scheduler: por cada tema activo, consultar última entrega + `PauseController` → generar o pausar.
 - [ ] Resumen por lote (Gemini Batch) + plantillas de noticiero por tema.
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 

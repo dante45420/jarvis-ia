@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from jarvis.modules.heraldo.delivery import Delivery, DeliveryKind
 from jarvis.modules.heraldo.domain import (
     Cluster,
     PodcastStyle,
@@ -130,4 +131,60 @@ def to_topic_dto(topic: Topic) -> TopicDTO:
         name=topic.name,
         state=topic.state.value,
         podcast_style=topic.podcast_style.value,
+    )
+
+
+class DeliveryDTO(BaseModel):
+    """Una entrega en su forma de salida, con su marca de consumo."""
+
+    id: str
+    topic_id: str
+    kind: str
+    created_at: datetime
+    consumed: bool
+
+
+class RecordDeliveryInput(BaseModel):
+    """Argumentos para registrar una entrega recién producida por un tema."""
+
+    topic_id: str
+    kind: Literal["podcast", "news"]
+
+
+class RecordDeliveryOutput(BaseModel):
+    """Resultado de registrar una entrega."""
+
+    delivery: DeliveryDTO
+
+
+class MarkConsumedInput(BaseModel):
+    """Argumentos para marcar una entrega como consumida."""
+
+    delivery_id: str
+
+
+class MarkConsumedOutput(BaseModel):
+    """Resultado de marcar una entrega: la entrega actualizada, o none si no existe."""
+
+    delivery: DeliveryDTO | None
+
+
+def to_delivery(data: RecordDeliveryInput, delivery_id: str, now: datetime) -> Delivery:
+    """Construye una entrega de dominio no consumida a partir de los argumentos."""
+    return Delivery(
+        id=delivery_id,
+        topic_id=data.topic_id,
+        kind=DeliveryKind(data.kind),
+        created_at=now,
+    )
+
+
+def to_delivery_dto(delivery: Delivery) -> DeliveryDTO:
+    """Traduce una entrega de dominio a su DTO de salida."""
+    return DeliveryDTO(
+        id=delivery.id,
+        topic_id=delivery.topic_id,
+        kind=delivery.kind.value,
+        created_at=delivery.created_at,
+        consumed=delivery.is_consumed,
     )
