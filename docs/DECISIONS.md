@@ -360,6 +360,32 @@ variantes y fechas, sin ganancia real).
 
 ---
 
+## D-0019 — Distribución de la app móvil sin App Store (personal)
+**Estado:** aceptada · Fase 4 (dirección, aún no implementada)
+
+**Contexto.** La app móvil es personal y no se publicará en la App Store. Duda: cómo lograr 100%
+de funcionalidad y cuál es la mejor vía de instalación. El usuario ya tiene cuenta de Apple
+Developer ($99/año).
+
+**Decisión.** Mantener la cuenta de Apple Developer y distribuir **fuera** de la App Store:
+- **iOS:** EAS Build + **TestFlight interno** (sin revisión, auto-actualiza, build válido 90 días;
+  re-subida vía `EAS Submit`, automatizable). Alternativa: build ad-hoc/`.ipa` en equipos
+  registrados (válido ~1 año). Se descarta el Apple ID gratis (re-firma cada 7 días, sin push).
+- **Android:** EAS Build → APK sideload (sin cuenta ni caducidad).
+- **OTA:** **Expo Updates** para empujar cambios JS/assets por aire; solo cambios nativos exigen
+  rebuild. La app es cliente delgado (backend en Render), así que la mayor parte se actualiza en
+  servidor.
+
+**Razón.** La App Store es canal + revisión, no una puerta a capacidades: push, background, etc.
+se habilitan por *entitlements*, disponibles con la cuenta de desarrollador sin publicar. Así se
+obtiene funcionalidad nativa completa sin listado público ni fricción de revisión.
+
+**Alternativas descartadas.** PWA como canal principal (iOS limita background/push y offline real);
+Apple ID gratis (caducidad de 7 días); publicar en App Store (revisión y exposición innecesarias
+para uso personal).
+
+---
+
 ## Decisiones abiertas (pendientes)
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.
