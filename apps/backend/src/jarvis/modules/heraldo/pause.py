@@ -1,18 +1,22 @@
-"""Política de pausa por tema: si hay una entrega sin consumir, el tema deja de generar.
+"""Políticas de pausa por tema. Determinísticas y por tema: pausar uno no afecta a los demás.
 
-Todo determinístico y por tema: pausar uno no afecta a los demás. Cuando se pausa, Jarvis deja
-una acción en la Bandeja para que decidas retomarlo o descartarlo.
+Hay dos políticas según el tipo de entrega:
+- Podcast (estricta): si quedó una entrega sin consumir, deja de generar.
+- Noticias (por ventana): siguen llegando salvo que pases 3 días sin responder ninguna.
+Al pausar, Jarvis deja una acción en la Bandeja para que decidas retomar o descartar.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from jarvis.modules.actions import ActionInbox, ModuleAction
 from jarvis.modules.heraldo.delivery import Delivery
 from jarvis.modules.heraldo.domain import Topic, TopicState
+
+_NEWS_SILENCE_WINDOW = timedelta(days=3)
 
 
 class GenerationDecision(StrEnum):
@@ -24,10 +28,28 @@ class GenerationDecision(StrEnum):
 
 
 def decide_generation(state: TopicState, pending: Delivery | None) -> GenerationDecision:
-    """Genera si no hay pendiente; pausa si quedó algo sin consumir; espera si ya está pausado."""
+    """Podcast (estricta): pausa si quedó algo sin consumir; espera si ya está pausado."""
     if state is TopicState.PAUSED:
         return GenerationDecision.HOLD
     if pending is not None and not pending.is_consumed:
+        return GenerationDecision.PAUSE
+    return GenerationDecision.GENERATE
+
+
+def decide_news_generation(
+    state: TopicState, last_response: datetime | None, now: datetime
+) -> GenerationDecision:
+    """Noticias (por ventana): siguen generando salvo 3 días sin ninguna respuesta.
+
+    `last_response` es la referencia: la última vez que respondiste una noticia (cualquier
+    respuesta cuenta) o, si nunca respondiste, cuándo empezó a acumularse contenido sin respuesta.
+    None significa que no hay nada acumulado ni pendiente: se genera.
+    """
+    if state is TopicState.PAUSED:
+        return GenerationDecision.HOLD
+    if last_response is None:
+        return GenerationDecision.GENERATE
+    if now - last_response > _NEWS_SILENCE_WINDOW:
         return GenerationDecision.PAUSE
     return GenerationDecision.GENERATE
 

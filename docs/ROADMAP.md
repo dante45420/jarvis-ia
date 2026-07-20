@@ -111,7 +111,12 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
       migración `0003`, capacidades `record_delivery`/`mark_delivery_consumed`. Verificado con DB real.
 - [x] Scheduler determinístico (`TopicScheduler`): por cada tema activo consulta la última entrega
       y aplica `PauseController` → devuelve los temas a generar y pausa los que tienen pendiente.
-- [ ] Resumen por lote (Gemini Batch) + plantillas de noticiero por tema.
+- [x] Política de pausa de **noticias** por ventana (`decide_news_generation`, 3 días sin respuesta;
+      cualquier respuesta reinicia). Distinta de la estricta del podcast (D-0021).
+- [ ] Menú de opciones: el motor ofrece X candidatos con id estable; seleccionas 0..N a profundizar.
+- [ ] Noticiero: tarjeta por capas (IA solo en lo seleccionado, caché por hash) vía OpenRouter.
+- [ ] Podcast: selección de qué profundizar → guion (narrador/diálogo) + TTS por OpenRouter;
+      audio en Supabase Storage.
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 
 ### Fase 6+ — Cerebro Córtex y grafo temporal

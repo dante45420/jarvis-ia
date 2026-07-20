@@ -321,27 +321,30 @@ cada ítem en vez de cada cluster (más tokens); medir alcance con IA (el cluste
 
 ---
 
-## D-0017 — Proveedores de Heraldo: Gemini Batch TTS, Tavily en vivo, podcast por tema
-**Estado:** aceptada · Fase 5
+## D-0017 — Proveedores de Heraldo: TTS por OpenRouter, Tavily en vivo, podcast por tema
+**Estado:** aceptada · Fase 5 · **revisada** (jul-2026: OpenRouter ya soporta TTS)
 
 **Contexto.** Hay que elegir voz del podcast, motor de búsqueda en vivo y formato, minimizando
-costo. Precios verificados en jul-2026.
+costo. Al verificar precios (jul-2026) se confirmó que **OpenRouter ya expone un endpoint
+`/audio/speech`** (compatible con OpenAI) con modelos TTS, incluido **Gemini 3.1 Flash TTS**.
 
 **Decisión.**
-- **Voz:** Gemini Flash TTS por **Batch API (50% off, asíncrono)** — los podcasts se generan por
-  adelantado, así que el lote calza perfecto (~$0.075 por episodio de 10 min). Por verificar
-  antes de cablear: que Batch acepte salida TTS; el puerto tendrá `synthesize_batch` con caída a
-  TTS interactivo sin cambiar el diseño.
+- **Voz:** **TTS por OpenRouter** (p. ej. Gemini Flash TTS) detrás del puerto de TTS. Un solo
+  gateway/key para texto y audio, todo medido por nuestra telemetría. Precio interactivo
+  (~$0.15 por episodio de 10 min). **OpenRouter no tiene modo batch**, así que el descuento
+  50% off (exclusivo de la API directa de Google) queda como **optimización futura**: si el
+  volumen lo justifica, se agrega un adaptador Gemini-Batch tras el mismo puerto, sin más cambios.
 - **En vivo:** Tavily (agrega fuentes y extrae en una llamada; 1.000 consultas gratis/mes),
   detrás de un puerto de fuente.
-- **Podcast configurable por tema:** narrador o diálogo dos-voces (Gemini soporta multi-speaker).
+- **Podcast configurable por tema:** narrador o diálogo dos-voces.
 - **Fuentes primera ola:** RSS/APIs gratis + Tavily + X + newsletters, todas tras el puerto
   `SourceAdapter`, con **libro mayor de fuentes**: costo (vía `UsageRecord`) y aporte
   determinístico (ítems, ítems únicos, ítems al output final) para decidir si una fuente paga vale.
 
-**Alternativas descartadas.** ElevenLabs (10x más caro para uso personal); OpenAI TTS (bueno pero
-sin lote a 50%); Brave como motor en vivo primario (sin tier gratis desde feb-2026); medir el
-valor de una fuente con IA (las métricas de aporte son determinísticas).
+**Alternativas descartadas.** Gemini Batch directo como primera opción (segundo proveedor/key +
+orquestación de lote para ~$0.075 de ahorro por episodio; no vale la complejidad inicial, se deja
+para cuando el volumen lo pida); ElevenLabs (10x más caro); Brave como motor en vivo primario
+(sin tier gratis desde feb-2026); medir el valor de una fuente con IA (es determinístico).
 
 ---
 
@@ -404,6 +407,35 @@ exista (aún pendiente en Fase 1).
 **Alternativas descartadas.** Conversación libre paso a paso (muchas llamadas + estado, más caro);
 solo un borrador sin preguntar (no cumple el "que me pregunte"); prosa libre (no parseable,
 más tokens). Proponer fuentes en esta versión (requiere descubrimiento de feeds; se difiere).
+
+---
+
+## D-0021 — Noticiero: IA perezosa, tarjeta por capas y pausa por ventana
+**Estado:** aceptada · Fase 5
+
+**Contexto.** El noticiero debe entregar valor con mínimo gasto de IA y mínima fricción de
+lectura (el usuario tiene déficit de atención: prefiere leer muy poco e interactuar). Su regla de
+pausa difiere del podcast.
+
+**Decisión.**
+- **IA perezosa por selección (menú de opciones):** el motor **ofrece X noticias candidatas** sin
+  IA (titular + extracto crudo + alcance + fuentes; cada una con id estable = hash de la URL). Tú
+  **seleccionas de 0 a todas** las que quieres profundizar. Solo las seleccionadas gastan IA para
+  armar su tarjeta por capas (cacheada por hash). Las no elegidas: **cero IA**. Expandir capas
+  luego es gratis (client-side). El **mismo mecanismo aplica al podcast**: se ofrecen candidatos y
+  eliges cuáles profundizar antes de generar el episodio (no todo se convierte en podcast).
+- **Tarjeta por capas (revelación progresiva):** 1) gancho/titular llamativo (siempre visible),
+  2) en una línea, 3) tres puntos clave, 4) detalle, 5) por qué importa + fuentes copiables. El
+  backend produce todas las capas de una; el cliente las revela al apretar.
+- **Pausa por ventana (≠ podcast):** las noticias **siguen llegando** aunque no respondas; se
+  detienen solo tras **3 días sin ninguna respuesta**; **cualquier** respuesta (interesa o no)
+  cuenta y reinicia la ventana. Implementado en `decide_news_generation` (política pura, aparte de
+  la estricta `decide_generation` del podcast). Consumo/engagement de noticias = responder;
+  del podcast = abrir/reproducir. Ambos reusan `Delivery.consumed_at` como marca de engagement.
+
+**Alternativas descartadas.** Resumir todas las noticias con IA (gasta en lo que no te interesa);
+tarjeta de un bloque largo (mala para déficit de atención); una llamada por capa al expandir (más
+tokens sin ganancia); misma regla de pausa que el podcast (el usuario la quiere más laxa).
 
 ---
 

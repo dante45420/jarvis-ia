@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from jarvis.modules.actions import ModuleAction
 from jarvis.modules.heraldo.delivery import Delivery, DeliveryKind
@@ -11,6 +11,7 @@ from jarvis.modules.heraldo.pause import (
     GenerationDecision,
     PauseController,
     decide_generation,
+    decide_news_generation,
     pause,
     resume,
 )
@@ -64,6 +65,25 @@ def test_generates_when_pending_already_consumed() -> None:
 
 def test_holds_when_already_paused() -> None:
     assert decide_generation(TopicState.PAUSED, None) is GenerationDecision.HOLD
+
+
+def test_news_generates_when_nothing_accumulated() -> None:
+    assert decide_news_generation(TopicState.ACTIVE, None, NOW) is GenerationDecision.GENERATE
+
+
+def test_news_keeps_generating_within_window() -> None:
+    recent = NOW - timedelta(days=2)
+    assert decide_news_generation(TopicState.ACTIVE, recent, NOW) is GenerationDecision.GENERATE
+
+
+def test_news_pauses_after_three_days_without_response() -> None:
+    stale = NOW - timedelta(days=4)
+    assert decide_news_generation(TopicState.ACTIVE, stale, NOW) is GenerationDecision.PAUSE
+
+
+def test_news_holds_when_already_paused() -> None:
+    stale = NOW - timedelta(days=10)
+    assert decide_news_generation(TopicState.PAUSED, stale, NOW) is GenerationDecision.HOLD
 
 
 def test_pause_and_resume_flip_state() -> None:
