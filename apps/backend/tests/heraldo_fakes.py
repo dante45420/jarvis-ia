@@ -8,13 +8,14 @@ from datetime import UTC, datetime, timedelta
 from jarvis.domain.llm import Message
 from jarvis.modules.actions import ModuleAction
 from jarvis.modules.heraldo.dissection import DissectionService
-from jarvis.modules.heraldo.domain import RawItem
+from jarvis.modules.heraldo.domain import PodcastStyle, RawItem
 from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.in_memory_deliveries import InMemoryDeliveryStore
 from jarvis.modules.heraldo.in_memory_topics import InMemoryTopicStore
 from jarvis.modules.heraldo.module import HeraldoDeps
 from jarvis.modules.heraldo.news_cache import InMemoryNewsCardCache
 from jarvis.modules.heraldo.news_card import NewsCardService
+from jarvis.modules.heraldo.podcast_service import PodcastService
 from jarvis.modules.heraldo.ports import SourceQuery
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 
@@ -42,6 +43,24 @@ class FakeCompleter:
     async def complete(self, task: str, messages: list[Message], now: datetime) -> str:
         self.calls.append(task)
         return self._responses.get(task, self._default)
+
+
+class FakeSynthesizer:
+    """TTS falso: devuelve el guion como bytes, sin red."""
+
+    async def synthesize(self, text: str, style: PodcastStyle) -> bytes:
+        return text.encode()
+
+
+class FakeAudioStorage:
+    """Almacenamiento falso: guarda en memoria y devuelve una URL simbólica."""
+
+    def __init__(self) -> None:
+        self.saved: dict[str, bytes] = {}
+
+    async def store(self, key: str, audio: bytes) -> str:
+        self.saved[key] = audio
+        return f"memory://{key}"
 
 
 class FakeSource:
@@ -86,6 +105,7 @@ def make_deps(
     deliveries: DeliveryStore | None = None,
     dissection: DissectionService | None = None,
     news_cards: NewsCardService | None = None,
+    podcast: PodcastService | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], str] | None = None,
 ) -> HeraldoDeps:
@@ -96,6 +116,7 @@ def make_deps(
         deliveries=deliveries or InMemoryDeliveryStore(),
         dissection=dissection or DissectionService(FakeCompleter()),
         news_cards=news_cards or NewsCardService(FakeCompleter(), InMemoryNewsCardCache()),
+        podcast=podcast or PodcastService(FakeCompleter(), FakeSynthesizer(), FakeAudioStorage()),
         clock=clock or (lambda: _DEFAULT_NOW),
         new_id=new_id or (lambda: "id-1"),
     )

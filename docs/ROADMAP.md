@@ -118,8 +118,10 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [x] **Noticiero: tarjeta por capas** (`deepen_stories`): IA perezosa (solo lo seleccionado),
       **batching inteligente** (troceo por ítems/tokens-in/tokens-out, D-0022) y **caché por hash**.
       Fuentes determinísticas; capas hook→línea→puntos→detalle→porqué.
-- [ ] Ruteo por urgencia seleccionable: modo "ya" (OpenRouter) vs "económico" (Gemini Batch 50%).
-- [ ] Podcast: selección de qué profundizar → guion (narrador/diálogo) + TTS; audio en Supabase Storage.
+- [x] **Podcast** (`compose_episode`): selección → guion en lote (narrador/diálogo, largo por
+      duración) → TTS → audio alojado. Puertos `SpeechSynthesizer` y `AudioStorage`.
+- [ ] Cableado real: composition root + API + adaptadores (Gemini directo, TTS, Supabase).
+- [ ] Ruteo por urgencia seleccionable: "ya" (Gemini directo) vs "económico" (Gemini Batch 50%).
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 
 ### Fase 6+ — Cerebro Córtex y grafo temporal

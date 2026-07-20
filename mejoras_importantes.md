@@ -1,0 +1,1 @@
+una forma inteligente de selecionar el modelo a usar y que se actualice semana a semana o diariamente porque en openrouter constantemente salen modelos nuevos que son mas baratos o que por momentos estan gratis y aprovechar esto al maximo es una oportunidad que no quiero pasar de lado

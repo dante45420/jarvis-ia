@@ -18,6 +18,7 @@ from jarvis.modules.heraldo.domain import (
 )
 from jarvis.modules.heraldo.news import NewsCard, StorySeed
 from jarvis.modules.heraldo.normalize import canonical_url
+from jarvis.modules.heraldo.podcast import Episode
 
 
 class StoryDTO(BaseModel):
@@ -306,4 +307,41 @@ def to_card_dto(card: NewsCard) -> NewsCardDTO:
         detail=card.detail,
         why_it_matters=card.why_it_matters,
         sources=list(card.sources),
+    )
+
+
+class EpisodeDTO(BaseModel):
+    """Un episodio de podcast listo: título, guion, audio y fuentes."""
+
+    id: str
+    title: str
+    script: str
+    audio_url: str
+    duration_minutes: int
+    sources: list[str]
+
+
+class ComposeEpisodeInput(BaseModel):
+    """Argumentos para componer un episodio con las historias que seleccionaste."""
+
+    stories: list[StorySeedInput]
+    style: Literal["narrator", "dialogue"] = "narrator"
+    minutes: int = 10
+
+
+class ComposeEpisodeOutput(BaseModel):
+    """El episodio recién producido."""
+
+    episode: EpisodeDTO
+
+
+def to_episode_dto(episode: Episode) -> EpisodeDTO:
+    """Traduce un episodio de dominio a su DTO de salida."""
+    return EpisodeDTO(
+        id=episode.id,
+        title=episode.title,
+        script=episode.script,
+        audio_url=episode.audio_url,
+        duration_minutes=episode.duration_minutes,
+        sources=list(episode.sources),
     )

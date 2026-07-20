@@ -8,12 +8,16 @@ from datetime import datetime
 
 from jarvis.modules.core import Capability, CapabilityHandler, Module
 from jarvis.modules.heraldo.dissection import DissectionService, QuestionAnswer
+from jarvis.modules.heraldo.domain import PodcastStyle
 from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.news_card import NewsCardService
+from jarvis.modules.heraldo.podcast_service import PodcastService
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 from jarvis.modules.heraldo.schemas import (
     CompileProfileInput,
     CompileProfileOutput,
+    ComposeEpisodeInput,
+    ComposeEpisodeOutput,
     CreateTopicInput,
     CreateTopicOutput,
     DeepenStoriesInput,
@@ -32,6 +36,7 @@ from jarvis.modules.heraldo.schemas import (
     to_card_dto,
     to_delivery,
     to_delivery_dto,
+    to_episode_dto,
     to_profile,
     to_seed,
     to_story,
@@ -52,6 +57,7 @@ class HeraldoDeps:
     deliveries: DeliveryStore
     dissection: DissectionService
     news_cards: NewsCardService
+    podcast: PodcastService
     clock: Clock
     new_id: IdFactory
 
@@ -69,9 +75,20 @@ def build_heraldo_module(deps: HeraldoDeps) -> Module:
             _list_topics_capability(deps),
             _gather_capability(deps),
             _deepen_stories_capability(deps),
+            _compose_episode_capability(deps),
             _record_delivery_capability(deps),
             _mark_consumed_capability(deps),
         ),
+    )
+
+
+def _compose_episode_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="compose_episode",
+        description="Compone un episodio desde las historias elegidas: guion, voz y audio.",
+        input_model=ComposeEpisodeInput,
+        output_model=ComposeEpisodeOutput,
+        handler=_compose_episode_handler(deps),
     )
 
 
@@ -179,6 +196,17 @@ def _deepen_stories_handler(deps: HeraldoDeps) -> CapabilityHandler:
         seeds = [to_seed(story) for story in args.stories]
         cards = await deps.news_cards.deepen(seeds, deps.clock())
         return DeepenStoriesOutput(cards=[to_card_dto(card) for card in cards])
+
+    return handle
+
+
+def _compose_episode_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: ComposeEpisodeInput) -> ComposeEpisodeOutput:
+        seeds = [to_seed(story) for story in args.stories]
+        episode = await deps.podcast.compose(
+            seeds, PodcastStyle(args.style), args.minutes, deps.clock(), deps.new_id()
+        )
+        return ComposeEpisodeOutput(episode=to_episode_dto(episode))
 
     return handle
 
