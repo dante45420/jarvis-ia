@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from jarvis.domain.llm import Message
 from jarvis.modules.actions import ModuleAction
+from jarvis.modules.heraldo.dissection import DissectionService
 from jarvis.modules.heraldo.domain import RawItem
 from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.in_memory_deliveries import InMemoryDeliveryStore
@@ -25,6 +27,19 @@ class FakeInbox:
 
     async def emit(self, action: ModuleAction) -> None:
         self.actions.append(action)
+
+
+class FakeCompleter:
+    """Completer falso: devuelve JSON predefinido por tarea, sin red. Guarda las tareas llamadas."""
+
+    def __init__(self, responses: dict[str, str] | None = None, default: str = "{}") -> None:
+        self._responses = responses or {}
+        self._default = default
+        self.calls: list[str] = []
+
+    async def complete(self, task: str, messages: list[Message], now: datetime) -> str:
+        self.calls.append(task)
+        return self._responses.get(task, self._default)
 
 
 class FakeSource:
@@ -67,6 +82,7 @@ def make_deps(
     gather: GatherService | None = None,
     topics: TopicStore | None = None,
     deliveries: DeliveryStore | None = None,
+    dissection: DissectionService | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], str] | None = None,
 ) -> HeraldoDeps:
@@ -75,6 +91,7 @@ def make_deps(
         gather=gather or GatherService([]),
         topics=topics or InMemoryTopicStore(),
         deliveries=deliveries or InMemoryDeliveryStore(),
+        dissection=dissection or DissectionService(FakeCompleter()),
         clock=clock or (lambda: _DEFAULT_NOW),
         new_id=new_id or (lambda: "id-1"),
     )

@@ -48,13 +48,15 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > entrega y aplica `PauseController`; devuelve los temas a generar y pausa los que tienen pendiente.
 > Test confirma que pausar un tema no bloquea a otro. **65 tests + 7 de integración**, todo verde.
 >
-> **Con esto el carril asíncrono determinístico está completo** (motor + fuentes RSS + persistencia
-> + pausa + scheduler). Falta el productor real (resumen + guion + TTS) y el primer uso de IA.
+> **Disección interactiva lista** (D-0020, **primer uso de IA**): `propose_topic_questions` +
+> `compile_topic_profile` (2 llamadas medidas, salida JSON validada con Pydantic). Puerto
+> `Completer` + adaptador `MeteredCompleter` (`application/`) que enruta por `MeteredCompletion`,
+> así todo costo queda registrado. **9 capacidades MCP-ready**, 71 tests + 7 de integración.
 >
-> **Próximo paso (Heraldo):** disección interactiva del tema (LLM, 1 vez, **primer uso de IA** →
-> pipeline costo-primero) que arma el `TopicProfile` conversando; luego más fuentes
-> (Tavily/X/newsletters) + libro mayor; resumen por lote + plantillas; guion + TTS por Gemini Batch.
-> Pendiente de memoria: consolidación (episodic) y decaimiento.
+> **Próximo paso (Heraldo):** el **productor de contenido** — resumen por lote (Gemini Batch) de los
+> clusters + plantillas de noticiero; luego guion (narrador/diálogo) + TTS por Gemini Batch. En
+> paralelo: más fuentes (Tavily/X/newsletters) + libro mayor de fuentes. Falta también conectar el
+> pipeline costo-primero (router/caché) al `Completer`. Pendiente de memoria: consolidación y decaimiento.
 
 ## Fases
 
@@ -98,7 +100,9 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [x] Adaptador de fuente **RSS/Atom** (feedparser) tras `SourceAdapter`: parseo puro + descarga httpx.
 - [ ] Más adaptadores de fuente (Tavily → X → newsletters) tras el mismo puerto.
 - [ ] Libro mayor de fuentes: costo por fuente + aporte (ítems, únicos, al output final).
-- [ ] Disección interactiva del tema (LLM, 1 vez) → `TopicProfile`.
+- [x] **Disección interactiva del tema** (primer uso de IA, D-0020): capacidades
+      `propose_topic_questions` + `compile_topic_profile`; 2 llamadas medidas, salida JSON.
+      Puerto `Completer` + adaptador `MeteredCompleter` (costo registrado).
 - [x] Máquina de **pausa por tema** (pura, cero IA): pausa al haber 1 entrega sin consumir
       (consumido = abrir/reproducir), independiente entre temas, deja acción en la Bandeja.
 - [x] Persistencia de **temas** (puerto `TopicStore`; adaptadores in-memory y Postgres) +

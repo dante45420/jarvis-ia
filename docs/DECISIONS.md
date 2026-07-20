@@ -386,6 +386,27 @@ para uso personal).
 
 ---
 
+## D-0020 — Disección interactiva del tema: 2 llamadas medidas con salida estructurada
+**Estado:** aceptada · Fase 5
+
+**Contexto.** Crear un tema no debe quedar vago. El usuario quiere que Jarvis le pregunte, pero
+la prioridad es ahorrar tokens. Es el primer uso de IA de Heraldo.
+
+**Decisión.** Flujo de **dos llamadas acotadas** (capacidades separadas, sin estado en el
+servidor entre ellas): `propose_topic_questions` genera 3-5 preguntas dirigidas; el cliente las
+responde; `compile_topic_profile` compila un `TopicProfile` y crea el tema. Salida **siempre JSON**
+(validada con Pydantic, tolerante a envoltorios), nunca prosa. La llamada pasa por el puerto
+`Completer`, cuyo adaptador real `MeteredCompleter` (en `application/`) enruta por
+`MeteredCompletion` → **todo costo queda medido**. El modelo concreto se fija en el ensamblado
+(cheapest-capable); el `ModelRouter`/caché del pipeline costo-primero se conectará aquí cuando
+exista (aún pendiente en Fase 1).
+
+**Alternativas descartadas.** Conversación libre paso a paso (muchas llamadas + estado, más caro);
+solo un borrador sin preguntar (no cumple el "que me pregunte"); prosa libre (no parseable,
+más tokens). Proponer fuentes en esta versión (requiere descubrimiento de feeds; se difiere).
+
+---
+
 ## Decisiones abiertas (pendientes)
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.

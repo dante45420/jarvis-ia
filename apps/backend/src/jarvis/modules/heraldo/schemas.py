@@ -134,6 +134,54 @@ def to_topic_dto(topic: Topic) -> TopicDTO:
     )
 
 
+class ProposeQuestionsInput(BaseModel):
+    """Argumentos para pedir las preguntas de disección de un tema."""
+
+    name: str
+
+
+class ProposeQuestionsOutput(BaseModel):
+    """Las preguntas dirigidas que Jarvis hace para acotar el tema."""
+
+    questions: list[str]
+
+
+class QAItem(BaseModel):
+    """Una pregunta de disección con la respuesta del usuario."""
+
+    question: str
+    answer: str
+
+
+class CompileProfileInput(BaseModel):
+    """Argumentos para compilar el perfil y crear el tema desde las respuestas."""
+
+    owner_id: str
+    name: str
+    podcast_style: Literal["narrator", "dialogue"] = "narrator"
+    answers: list[QAItem]
+
+
+class CompileProfileOutput(BaseModel):
+    """El tema recién creado a partir de la disección."""
+
+    topic: TopicDTO
+
+
+def build_topic(
+    owner_id: str, name: str, profile: TopicProfile, style: str, topic_id: str
+) -> Topic:
+    """Construye un tema activo a partir de un perfil ya compilado."""
+    return Topic(
+        id=topic_id,
+        owner_id=owner_id,
+        name=name,
+        profile=profile,
+        podcast_style=PodcastStyle(style),
+        state=TopicState.ACTIVE,
+    )
+
+
 class DeliveryDTO(BaseModel):
     """Una entrega en su forma de salida, con su marca de consumo."""
 

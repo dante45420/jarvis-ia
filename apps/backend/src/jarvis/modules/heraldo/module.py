@@ -7,9 +7,12 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from jarvis.modules.core import Capability, CapabilityHandler, Module
+from jarvis.modules.heraldo.dissection import DissectionService, QuestionAnswer
 from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 from jarvis.modules.heraldo.schemas import (
+    CompileProfileInput,
+    CompileProfileOutput,
     CreateTopicInput,
     CreateTopicOutput,
     GatherInput,
@@ -18,8 +21,11 @@ from jarvis.modules.heraldo.schemas import (
     ListTopicsOutput,
     MarkConsumedInput,
     MarkConsumedOutput,
+    ProposeQuestionsInput,
+    ProposeQuestionsOutput,
     RecordDeliveryInput,
     RecordDeliveryOutput,
+    build_topic,
     to_delivery,
     to_delivery_dto,
     to_profile,
@@ -39,6 +45,7 @@ class HeraldoDeps:
     gather: GatherService
     topics: TopicStore
     deliveries: DeliveryStore
+    dissection: DissectionService
     clock: Clock
     new_id: IdFactory
 
@@ -50,12 +57,34 @@ def build_heraldo_module(deps: HeraldoDeps) -> Module:
         name="Heraldo",
         description="Tu vocero: podcast, noticiero y búsqueda en vivo sobre los temas que sigues.",
         capabilities=(
+            _propose_questions_capability(deps),
+            _compile_profile_capability(deps),
             _create_topic_capability(deps),
             _list_topics_capability(deps),
             _gather_capability(deps),
             _record_delivery_capability(deps),
             _mark_consumed_capability(deps),
         ),
+    )
+
+
+def _propose_questions_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="propose_topic_questions",
+        description="Genera preguntas dirigidas para acotar un tema antes de crearlo.",
+        input_model=ProposeQuestionsInput,
+        output_model=ProposeQuestionsOutput,
+        handler=_propose_questions_handler(deps),
+    )
+
+
+def _compile_profile_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="compile_topic_profile",
+        description="Compila el perfil desde tus respuestas y crea el tema.",
+        input_model=CompileProfileInput,
+        output_model=CompileProfileOutput,
+        handler=_compile_profile_handler(deps),
     )
 
 
@@ -107,6 +136,25 @@ def _mark_consumed_capability(deps: HeraldoDeps) -> Capability:
         output_model=MarkConsumedOutput,
         handler=_mark_consumed_handler(deps),
     )
+
+
+def _propose_questions_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: ProposeQuestionsInput) -> ProposeQuestionsOutput:
+        questions = await deps.dissection.propose_questions(args.name, deps.clock())
+        return ProposeQuestionsOutput(questions=questions)
+
+    return handle
+
+
+def _compile_profile_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: CompileProfileInput) -> CompileProfileOutput:
+        answers = [QuestionAnswer(item.question, item.answer) for item in args.answers]
+        profile = await deps.dissection.compile_profile(args.name, answers, deps.clock())
+        topic = build_topic(args.owner_id, args.name, profile, args.podcast_style, deps.new_id())
+        await deps.topics.save(topic)
+        return CompileProfileOutput(topic=to_topic_dto(topic))
+
+    return handle
 
 
 def _create_topic_handler(deps: HeraldoDeps) -> CapabilityHandler:
