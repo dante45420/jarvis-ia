@@ -35,10 +35,15 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > **Adaptador RSS/Atom listo** (D-0018): `parse_feed` puro (feedparser, testeable sin red) +
 > `HttpFeedFetcher` (httpx) tras `FeedFetcher`; resiliente a feeds caídos. Ya alimenta al motor.
 >
-> **Próximo paso (Heraldo):** persistencia de temas + máquina de pausa por tema (un tema pausado
-> no frena a otro); disección interactiva del tema (LLM, 1 vez) → `TopicProfile`; luego más fuentes
-> (Tavily/X/newsletters) + libro mayor; resumen por lote + plantillas; guion + TTS por Gemini Batch.
-> Pendiente de memoria: consolidación (episodic) y decaimiento.
+> **Máquina de pausa por tema lista** (pura): `decide_generation` (GENERATE/PAUSE/HOLD) +
+> `PauseController` que avisa a la Bandeja vía el puerto `ActionInbox` (semilla de la Bandeja en
+> `modules/actions.py`). Pausa al haber 1 entrega sin consumir; consumido = abrir/reproducir.
+>
+> **Próximo paso (Heraldo):** persistencia de temas y entregas (SQLAlchemy + Alembic) tras un
+> puerto propio, para que la pausa y el scheduler operen sobre datos reales; luego disección
+> interactiva del tema (LLM, 1 vez) → `TopicProfile`; más fuentes (Tavily/X/newsletters) + libro
+> mayor; resumen por lote + plantillas; guion + TTS por Gemini Batch. Pendiente de memoria:
+> consolidación (episodic) y decaimiento.
 
 ## Fases
 
@@ -83,7 +88,9 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [ ] Más adaptadores de fuente (Tavily → X → newsletters) tras el mismo puerto.
 - [ ] Libro mayor de fuentes: costo por fuente + aporte (ítems, únicos, al output final).
 - [ ] Disección interactiva del tema (LLM, 1 vez) → `TopicProfile`.
-- [ ] Persistencia de temas + máquina de pausa por tema (acción a la Bandeja).
+- [x] Máquina de **pausa por tema** (pura, cero IA): pausa al haber 1 entrega sin consumir
+      (consumido = abrir/reproducir), independiente entre temas, deja acción en la Bandeja.
+- [ ] Persistencia de temas y entregas (SQLAlchemy + Alembic) tras un puerto propio.
 - [ ] Resumen por lote (Gemini Batch) + plantillas de noticiero por tema.
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
 
