@@ -59,6 +59,12 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > adaptador **Gemini directo** para el carril inmediato. El app arranca y expone las **9 capacidades**.
 > **94 tests + 7 de integración**, ruff + mypy strict en verde. Audio con adaptadores interinos.
 >
+> **🚀 DESPLEGADO Y VIVO EN PRODUCCIÓN** (jul-2026): backend en Render + Supabase (DB+Storage) +
+> Gemini. Verificado en vivo: `/health`, `/modules`, disección con Gemini real, y `create_topic`/
+> `list_topics` escribiendo y leyendo de Supabase. URL: jarvis-backend-cs90.onrender.com. Modelo de
+> texto por defecto: `gemini-flash-latest` (el `2.5-flash` quedó deprecado). Falta: frontend, probar
+> el audio (compose_episode con TTS), configurar feeds reales, y las mejoras (selector de modelo, etc.).
+>
 > **Audio real + deploy listos** (D-0024): TTS por Gemini directo (PCM→WAV) + Supabase Storage;
 > Dockerfile + `render.yaml` + `docs/DEPLOY.md`; imagen Docker verificada (build + boot + endpoints).
 > **98 tests + 7 de integración**, ruff + mypy strict en verde. Heraldo está **listo para producción**.
