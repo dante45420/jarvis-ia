@@ -43,7 +43,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Crea los recursos con red/DB al arrancar y los cierra al apagar."""
     settings = get_settings()
     engine = create_engine(settings.database_url) if settings.database_url else None
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=180.0) as client:
         app.state.registry = build_registry(settings, client, engine)
         yield
     if engine is not None:

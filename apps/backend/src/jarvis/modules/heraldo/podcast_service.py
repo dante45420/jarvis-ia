@@ -41,7 +41,7 @@ class PodcastService:
         """Produce un episodio completo a partir de las historias seleccionadas."""
         draft = await self._write_script(seeds, style, minutes, now)
         audio = await self._synthesizer.synthesize(draft.script, style)
-        url = await self._storage.store(f"episodes/{episode_id}.mp3", audio)
+        url = await self._storage.store(f"episodes/{episode_id}.wav", audio)
         return _to_episode(episode_id, draft, url, minutes, seeds)
 
     async def _write_script(
