@@ -32,9 +32,9 @@ async def test_compose_writes_script_synthesizes_and_stores_audio() -> None:
     episode = await service.compose([_seed("s1")], PodcastStyle.NARRATOR, 10, NOW, "ep-1")
 
     assert episode.title == "Lo último en IA"
-    assert episode.audio_url == "memory://episodes/ep-1.mp3"
+    assert episode.audio_url == "memory://episodes/ep-1.wav"
     assert episode.sources == ("Medio A", "Medio B")
-    assert storage.saved["episodes/ep-1.mp3"] == episode.script.encode()
+    assert storage.saved["episodes/ep-1.wav"] == episode.script.encode()
 
 
 async def test_compose_uses_single_script_call_for_all_stories() -> None:
