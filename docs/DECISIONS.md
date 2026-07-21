@@ -510,9 +510,39 @@ migraciones a mano en cada deploy (el arranque del contenedor las aplica idempot
 
 ---
 
+## D-0025 — Selección de modelo por tarea: catálogo dinámico, ranking gratis-primero, default fijo
+**Estado:** aceptada · Fase 5/3 (backend + frontend)
+
+**Contexto.** El usuario quiere cambiar fácil el modelo por (módulo, tarea) **desde el frontend**,
+viendo **solo modelos capaces** ("que cumplan la pega"), aprovechar modelos gratis nuevos sin
+buscarlos, y sin usar un "gratis" que en realidad ya es pagado.
+
+**Decisión.**
+- **Catálogo dinámico:** `ModelCatalog` (puerto) + adaptador que refresca a diario desde `/models`
+  de OpenRouter (id, nombre, precio, contexto, modalidad, si es gratis) más entradas manuales de los
+  proveedores gestionados (Gemini). El **precio se lee en vivo del catálogo**, nunca un flag "gratis"
+  cacheado: gratis = precio actual $0; si sube, el modelo **baja solo** en el ranking.
+- **Filtro "cumple la pega":** cada tarea declara su `ModelRequirement` (modalidad texto/tts/embedding,
+  si exige JSON/estructurado, contexto mínimo). Solo se muestran los modelos capaces.
+- **Ranking (gratis-primero):** capaz → gratis primero (por precio actual) → más barato → gama de
+  calidad curada. Diseñado para incorporar luego un **puntaje de calidad** de la eval por tarea.
+- **Default = modelo fijo por tarea** que el usuario define (predecible, sin auto-switch silencioso);
+  el frontend muestra el ranking para switchear manual. Persistido en `ModelOverride` (DB, por
+  owner/módulo/tarea). `ModelResolver` decide en cada llamada; el `Completer`/adaptadores usan ese
+  modelo+proveedor.
+- **Eval por tarea (diseñar para ello desde ya, construir después):** harness que corre un set de
+  prueba por tipo de tarea, **manual y de bajo costo**, puntúa la calidad de cada modelo capaz y
+  alimenta la dimensión de calidad del ranking. La arquitectura no debe requerir rehacerse para esto.
+- **API:** `GET /models?task=…` (capaces + metadata + precio en vivo), `GET/PUT` del override por
+  tarea. **Frontend:** selector por tarea con badge de gratis, precio y contexto.
+
+**Alternativas descartadas.** Flag "gratis" cacheado (peligroso: un modelo puede dejar de ser
+gratis); auto-switch silencioso por defecto (el usuario quiere control y predecibilidad); eval con
+IA en cada request (caro; la eval es manual y puntual); mostrar todos los modelos (ruido: solo los
+capaces).
+
+---
+
 ## Decisiones abiertas (pendientes)
-- **Selector de modelo dinámico (`ModelRouter`)**: refrescar el catálogo de OpenRouter a diario/semanal
-  para aprovechar modelos nuevos más baratos o temporalmente gratis, eligiendo el más barato capaz por
-  tarea. Ver `mejoras_importantes.md`. Se conecta al puerto `Completer`/pipeline costo-primero.
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.

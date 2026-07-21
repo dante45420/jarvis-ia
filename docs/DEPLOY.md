@@ -9,14 +9,21 @@ Storage del audio) · **Vercel** (frontend, cuando exista `apps/web`).
 ## 1. Supabase (base de datos + storage)
 
 1. Crea un proyecto en supabase.com. Guarda la contraseña de la base.
-2. **Connection string** (Project Settings → Database → Connection string → URI). Conviértela a
-   asyncpg y úsala como `JARVIS_DATABASE_URL`:
+2. **Connection string** — usa el **Session pooler** (IPv4), NO la conexión directa. La directa
+   (`db.<REF>.supabase.co`) es **solo IPv6** y Render sale por IPv4 → daría `Network is unreachable`.
+   En el botón **Connect** (arriba) → **Session pooler** → copia el URI. Se ve así (fíjate: host
+   `pooler.supabase.com` y usuario `postgres.<REF>`):
    ```
-   postgresql+asyncpg://postgres:<PASSWORD>@db.<REF>.supabase.co:5432/postgres
+   postgresql://postgres.<REF>:<PASSWORD>@<REGION>.pooler.supabase.com:5432/postgres
    ```
-   - Usa el puerto directo **5432** (no el pooler 6543): Render es un server persistente y así
-     evitas el problema de prepared statements de pgbouncer.
-   - Si la contraseña trae símbolos, URL-encodéalos.
+   Cámbiale el esquema a `+asyncpg` y úsalo como `JARVIS_DATABASE_URL`:
+   ```
+   postgresql+asyncpg://postgres.<REF>:<PASSWORD>@<REGION>.pooler.supabase.com:5432/postgres
+   ```
+   - **Session pooler = puerto 5432** (server persistente, prepared statements OK). No uses el
+     transaction pooler (6543).
+   - El SSL lo exige el código automáticamente para hosts remotos.
+   - Si la contraseña trae símbolos (`,` `*` …) y falla, resetéala en Supabase a una alfanumérica.
 3. **pgvector**: la migración `0001` corre `CREATE EXTENSION IF NOT EXISTS vector`. Si el rol no
    tuviera permiso, actívala en Database → Extensions → habilita `vector`.
 4. **Storage**: crea un bucket llamado `podcasts` y márcalo **público** (Storage → New bucket →
