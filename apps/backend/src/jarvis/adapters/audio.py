@@ -13,7 +13,7 @@ from jarvis.modules.heraldo.domain import PodcastStyle
 class NullSpeechSynthesizer:
     """TTS interino: devuelve audio vacío hasta cablear el sintetizador real."""
 
-    async def synthesize(self, text: str, style: PodcastStyle) -> bytes:
+    async def synthesize(self, text: str, style: PodcastStyle, voice: str | None = None) -> bytes:
         return b""
 
 

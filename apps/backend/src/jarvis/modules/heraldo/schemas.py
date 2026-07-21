@@ -327,6 +327,48 @@ class ComposeEpisodeInput(BaseModel):
     stories: list[StorySeedInput]
     style: Literal["narrator", "dialogue"] = "narrator"
     minutes: int = 10
+    voice: str | None = None
+
+
+class VoiceDTO(BaseModel):
+    """Una voz disponible para el podcast, con su carácter."""
+
+    name: str
+    vibe: str
+
+
+class ListVoicesInput(BaseModel):
+    """Sin argumentos: lista las voces disponibles."""
+
+
+class ListVoicesOutput(BaseModel):
+    """Las voces que puedes elegir para el podcast."""
+
+    voices: list[VoiceDTO]
+
+
+_GEMINI_VOICES: tuple[tuple[str, str], ...] = (
+    ("Kore", "Firme"),
+    ("Puck", "Animada"),
+    ("Charon", "Informativa"),
+    ("Aoede", "Ligera"),
+    ("Leda", "Juvenil"),
+    ("Orus", "Firme y grave"),
+    ("Fenrir", "Enérgica"),
+    ("Callirrhoe", "Relajada"),
+    ("Enceladus", "Susurrante"),
+    ("Iapetus", "Clara"),
+    ("Umbriel", "Tranquila"),
+    ("Algieba", "Suave"),
+    ("Achird", "Amistosa"),
+    ("Sulafat", "Cálida"),
+    ("Gacrux", "Madura"),
+)
+
+
+def list_voices() -> list[VoiceDTO]:
+    """Devuelve el catálogo curado de voces de Gemini para el podcast."""
+    return [VoiceDTO(name=name, vibe=vibe) for name, vibe in _GEMINI_VOICES]
 
 
 class ComposeEpisodeOutput(BaseModel):

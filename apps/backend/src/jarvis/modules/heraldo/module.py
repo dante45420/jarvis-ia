@@ -26,6 +26,8 @@ from jarvis.modules.heraldo.schemas import (
     GatherOutput,
     ListTopicsInput,
     ListTopicsOutput,
+    ListVoicesInput,
+    ListVoicesOutput,
     MarkConsumedInput,
     MarkConsumedOutput,
     ProposeQuestionsInput,
@@ -33,6 +35,7 @@ from jarvis.modules.heraldo.schemas import (
     RecordDeliveryInput,
     RecordDeliveryOutput,
     build_topic,
+    list_voices,
     to_card_dto,
     to_delivery,
     to_delivery_dto,
@@ -76,9 +79,20 @@ def build_heraldo_module(deps: HeraldoDeps) -> Module:
             _gather_capability(deps),
             _deepen_stories_capability(deps),
             _compose_episode_capability(deps),
+            _list_voices_capability(deps),
             _record_delivery_capability(deps),
             _mark_consumed_capability(deps),
         ),
+    )
+
+
+def _list_voices_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="list_voices",
+        description="Lista las voces disponibles para elegir en el podcast.",
+        input_model=ListVoicesInput,
+        output_model=ListVoicesOutput,
+        handler=_list_voices_handler(deps),
     )
 
 
@@ -204,9 +218,16 @@ def _compose_episode_handler(deps: HeraldoDeps) -> CapabilityHandler:
     async def handle(args: ComposeEpisodeInput) -> ComposeEpisodeOutput:
         seeds = [to_seed(story) for story in args.stories]
         episode = await deps.podcast.compose(
-            seeds, PodcastStyle(args.style), args.minutes, deps.clock(), deps.new_id()
+            seeds, PodcastStyle(args.style), args.minutes, deps.clock(), deps.new_id(), args.voice
         )
         return ComposeEpisodeOutput(episode=to_episode_dto(episode))
+
+    return handle
+
+
+def _list_voices_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: ListVoicesInput) -> ListVoicesOutput:
+        return ListVoicesOutput(voices=list_voices())
 
     return handle
 

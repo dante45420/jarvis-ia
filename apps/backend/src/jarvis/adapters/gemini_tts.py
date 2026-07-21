@@ -27,11 +27,11 @@ class GeminiSpeechSynthesizer:
         self._model = model
         self._voice = voice
 
-    async def synthesize(self, text: str, style: PodcastStyle) -> bytes:
-        """Convierte el guion en audio WAV."""
+    async def synthesize(self, text: str, style: PodcastStyle, voice: str | None = None) -> bytes:
+        """Convierte el guion en audio WAV con la voz pedida (o la de por defecto)."""
         response = await self._client.post(
             f"{_BASE_URL}/{self._model}:generateContent",
-            json=_tts_payload(text, self._voice),
+            json=_tts_payload(text, voice or self._voice),
             headers={"x-goog-api-key": self._api_key},
         )
         response.raise_for_status()

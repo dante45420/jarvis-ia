@@ -19,6 +19,7 @@ from jarvis.modules.heraldo.dissection import Completer
 from jarvis.modules.heraldo.jsonio import extract_json_object
 from jarvis.modules.heraldo.news import NewsCard, StorySeed
 from jarvis.modules.heraldo.news_cache import NewsCardCache
+from jarvis.modules.heraldo.prompts import CHILEAN_REGISTER, SUBSTANCE
 
 # Cada tarjeta genera una respuesta acotada (gancho + línea + 3 bullets + detalle + porqué).
 _OUTPUT_TOKENS_PER_CARD = 220
@@ -105,8 +106,8 @@ def _cards_prompt(seeds: list[StorySeed]) -> list[Message]:
     """Arma el prompt que pide, en lote, una tarjeta por capas para cada historia."""
     system = (
         "Resumes noticias para alguien con déficit de atención: quiere leer poquísimo y luego "
-        "profundizar por capas. En español chileno (tuteo). Para cada historia entrega capas de "
-        "menor a mayor detalle. Responde SOLO con JSON: "
+        f"profundizar por capas. {CHILEAN_REGISTER} {SUBSTANCE} Para cada historia entrega capas "
+        "de menor a mayor detalle. Responde SOLO con JSON: "
         '{"cards": [{"story_id": "...", "hook": "titular corto y llamativo", '
         '"one_line": "la esencia en una línea", "key_points": ["3 micro-bullets"], '
         '"detail": "un párrafo corto", "why_it_matters": "por qué te importa"}]}. '

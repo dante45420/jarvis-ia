@@ -46,9 +46,13 @@ class FakeCompleter:
 
 
 class FakeSynthesizer:
-    """TTS falso: devuelve el guion como bytes, sin red."""
+    """TTS falso: devuelve el guion como bytes, sin red. Guarda la última voz pedida."""
 
-    async def synthesize(self, text: str, style: PodcastStyle) -> bytes:
+    def __init__(self) -> None:
+        self.last_voice: str | None = None
+
+    async def synthesize(self, text: str, style: PodcastStyle, voice: str | None = None) -> bytes:
+        self.last_voice = voice
         return text.encode()
 
 

@@ -24,8 +24,8 @@ class Episode:
 class SpeechSynthesizer(Protocol):
     """Convierte el guion en audio. Detrás vive el TTS concreto (Gemini/OpenRouter)."""
 
-    async def synthesize(self, text: str, style: PodcastStyle) -> bytes:
-        """Devuelve el audio del guion en bytes."""
+    async def synthesize(self, text: str, style: PodcastStyle, voice: str | None = None) -> bytes:
+        """Devuelve el audio del guion en bytes; voice None usa la voz por defecto."""
         ...
 
 

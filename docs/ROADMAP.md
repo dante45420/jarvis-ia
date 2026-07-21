@@ -114,7 +114,12 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [x] Motor agregador determinístico (normalizar → clustering/alcance → filtro → ranking).
 - [x] Capacidad `gather_stories` end-to-end con tests, sin IA ni red.
 - [x] Adaptador de fuente **RSS/Atom** (feedparser) tras `SourceAdapter`: parseo puro + descarga httpx.
-- [ ] Más adaptadores de fuente (Tavily → X → newsletters) tras el mismo puerto.
+- [x] Adaptador **Tavily** (búsqueda web real del tema) tras `SourceAdapter`; se cablea con
+      `JARVIS_TAVILY_API_KEY`. Fundamenta el contenido en fuentes reales.
+- [x] Prompts con **sustancia** (ideas no obvias, respaldadas) y **registro chileno moderado**
+      (compartido en `prompts.py`); voz del podcast **seleccionable** (`list_voices` + param `voice`);
+      duración configurable y más precisa (piso de palabras + ~160 ppm).
+- [ ] Más fuentes (X → newsletters) tras el mismo puerto.
 - [ ] Libro mayor de fuentes: costo por fuente + aporte (ítems, únicos, al output final).
 - [x] **Disección interactiva del tema** (primer uso de IA, D-0020): capacidades
       `propose_topic_questions` + `compile_topic_profile`; 2 llamadas medidas, salida JSON.

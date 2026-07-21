@@ -34,9 +34,11 @@ from jarvis.modules.heraldo.pg_deliveries import PgDeliveryStore
 from jarvis.modules.heraldo.pg_topics import PgTopicStore
 from jarvis.modules.heraldo.podcast import AudioStorage, SpeechSynthesizer
 from jarvis.modules.heraldo.podcast_service import PodcastService
+from jarvis.modules.heraldo.ports import SourceAdapter
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 from jarvis.modules.heraldo.sources.http_fetcher import HttpFeedFetcher
 from jarvis.modules.heraldo.sources.rss import RssSource
+from jarvis.modules.heraldo.sources.tavily import TavilySource
 from jarvis.platform.config import Settings
 from jarvis.platform.db import create_session_factory
 
@@ -104,11 +106,14 @@ def _stores(engine: AsyncEngine | None) -> tuple[TopicStore, DeliveryStore]:
 
 
 def _gather(settings: Settings, client: httpx.AsyncClient) -> GatherService:
-    """Arma el motor con las fuentes RSS configuradas (vacío si no hay feeds)."""
+    """Arma el motor con las fuentes configuradas: RSS (feeds) y Tavily (búsqueda web)."""
+    sources: list[SourceAdapter] = []
     feeds = [feed.strip() for feed in settings.heraldo_feeds.split(",") if feed.strip()]
-    if not feeds:
-        return GatherService([])
-    return GatherService([RssSource(feeds, HttpFeedFetcher(client), _utcnow)])
+    if feeds:
+        sources.append(RssSource(feeds, HttpFeedFetcher(client), _utcnow))
+    if settings.tavily_api_key:
+        sources.append(TavilySource(settings.tavily_api_key, client, _utcnow))
+    return GatherService(sources)
 
 
 def _pricing(settings: Settings) -> PricingCatalog:

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     gemini_tts_voice: str = "Kore"
     database_url: str = ""
     heraldo_feeds: str = ""
+    tavily_api_key: str = ""
     supabase_url: str = ""
     supabase_service_key: str = ""
     supabase_bucket: str = "podcasts"

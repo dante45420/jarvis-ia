@@ -44,6 +44,14 @@ async def test_compose_uses_single_script_call_for_all_stories() -> None:
     assert completer.calls == ["podcast_script"]
 
 
+async def test_compose_passes_selected_voice_to_synthesizer() -> None:
+    synth = FakeSynthesizer()
+    completer = FakeCompleter({"podcast_script": _SCRIPT_JSON})
+    service = PodcastService(completer, synth, FakeAudioStorage())
+    await service.compose([_seed("s1")], PodcastStyle.NARRATOR, 5, NOW, "ep-1", voice="Puck")
+    assert synth.last_voice == "Puck"
+
+
 async def test_compose_episode_capability_returns_episode() -> None:
     service = PodcastService(
         FakeCompleter({"podcast_script": _SCRIPT_JSON}), FakeSynthesizer(), FakeAudioStorage()
@@ -54,9 +62,16 @@ async def test_compose_episode_capability_returns_episode() -> None:
     output = await capability.invoke(
         {"stories": [{"id": "s1", "title": "T", "snippet": "c", "url": "https://x.cl/s1",
                       "sources": ["Medio A"]}],
-         "style": "dialogue", "minutes": 8}
+         "style": "dialogue", "minutes": 8, "voice": "Charon"}
     )
 
     assert output["episode"]["id"] == "ep-1"
     assert output["episode"]["duration_minutes"] == 8
     assert output["episode"]["title"] == "Lo último en IA"
+
+
+async def test_list_voices_capability_returns_options() -> None:
+    output = await build_heraldo_module(make_deps()).capability("list_voices").invoke({})
+    names = [voice["name"] for voice in output["voices"]]
+    assert "Kore" in names
+    assert len(names) >= 5

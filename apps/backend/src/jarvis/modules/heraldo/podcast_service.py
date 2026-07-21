@@ -16,8 +16,9 @@ from jarvis.modules.heraldo.domain import PodcastStyle
 from jarvis.modules.heraldo.jsonio import extract_json_object
 from jarvis.modules.heraldo.news import StorySeed
 from jarvis.modules.heraldo.podcast import AudioStorage, Episode, SpeechSynthesizer
+from jarvis.modules.heraldo.prompts import CHILEAN_REGISTER, SUBSTANCE
 
-_WORDS_PER_MINUTE = 150
+_WORDS_PER_MINUTE = 160
 
 
 class PodcastService:
@@ -37,10 +38,11 @@ class PodcastService:
         minutes: int,
         now: datetime,
         episode_id: str,
+        voice: str | None = None,
     ) -> Episode:
         """Produce un episodio completo a partir de las historias seleccionadas."""
         draft = await self._write_script(seeds, style, minutes, now)
-        audio = await self._synthesizer.synthesize(draft.script, style)
+        audio = await self._synthesizer.synthesize(draft.script, style, voice)
         url = await self._storage.store(f"episodes/{episode_id}.wav", audio)
         return _to_episode(episode_id, draft, url, minutes, seeds)
 
@@ -80,12 +82,14 @@ def _sources(seeds: list[StorySeed]) -> tuple[str, ...]:
 
 
 def _script_prompt(seeds: list[StorySeed], style: PodcastStyle, minutes: int) -> list[Message]:
-    """Arma el prompt que teje las historias en un guion del estilo y largo pedidos."""
-    words = minutes * _WORDS_PER_MINUTE
+    """Arma el prompt que teje las historias en un guion con sustancia, estilo y largo pedidos."""
+    target = minutes * _WORDS_PER_MINUTE
+    floor = int(target * 0.9)
     system = (
-        "Escribes guiones de podcast en español chileno (tuteo), amenos y fáciles de escuchar. "
-        f"{_style_hint(style)} Apunta a unas {words} palabras (~{minutes} min). Teje las historias "
-        "en un solo guion con hilo narrativo. Responde SOLO con JSON: "
+        f"Escribes guiones de podcast amenos y fáciles de escuchar. {CHILEAN_REGISTER} {SUBSTANCE} "
+        f"{_style_hint(style)} Escribe AL MENOS {floor} palabras, apuntando a ~{target} "
+        f"(~{minutes} min); no termines antes de desarrollar bien cada punto. Teje las historias "
+        "en un solo guion con hilo narrativo, con apertura y cierre. Responde SOLO con JSON: "
         '{"title": "título atractivo", "script": "el guion hablado"}.'
     )
     return [Message("system", system), Message("user", _seeds_block(seeds))]
