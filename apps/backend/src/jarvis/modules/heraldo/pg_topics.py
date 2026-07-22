@@ -6,8 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
 
+from jarvis.modules.heraldo.cadence import Cadence, Frequency
 from jarvis.modules.heraldo.db_models import TopicRow
 from jarvis.modules.heraldo.domain import PodcastStyle, Topic, TopicProfile, TopicState
+from jarvis.modules.heraldo.onboarding import form_from_dict, form_to_dict
 
 
 class PgTopicStore:
@@ -61,11 +63,15 @@ def _to_row(topic: Topic) -> TopicRow:
         recency_hours=profile.recency_hours,
         podcast_style=topic.podcast_style.value,
         state=topic.state.value,
+        cadence_frequency=topic.cadence.frequency.value,
+        cadence_every_days=topic.cadence.every_days,
+        cadence_hour=topic.cadence.hour,
+        onboarding=form_to_dict(topic.onboarding) if topic.onboarding is not None else None,
     )
 
 
 def _to_topic(row: TopicRow) -> Topic:
-    """Traduce una fila a tema de dominio, reconstruyendo su perfil."""
+    """Traduce una fila a tema de dominio, reconstruyendo su perfil, cadencia y onboarding."""
     profile = TopicProfile(
         subtopics=tuple(row.subtopics),
         include_keywords=tuple(row.include_keywords),
@@ -80,4 +86,10 @@ def _to_topic(row: TopicRow) -> Topic:
         profile=profile,
         podcast_style=PodcastStyle(row.podcast_style),
         state=TopicState(row.state),
+        cadence=Cadence(
+            frequency=Frequency(row.cadence_frequency),
+            every_days=row.cadence_every_days,
+            hour=row.cadence_hour,
+        ),
+        onboarding=form_from_dict(row.onboarding) if row.onboarding else None,
     )

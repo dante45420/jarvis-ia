@@ -14,22 +14,32 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from jarvis.adapters.audio import InMemoryAudioStorage, NullSpeechSynthesizer
+from jarvis.adapters.expo_push import ExpoPushSender
 from jarvis.adapters.gemini import GeminiProvider
 from jarvis.adapters.gemini_tts import GeminiSpeechSynthesizer
+from jarvis.adapters.in_memory_push_tokens import InMemoryPushTokenStore
 from jarvis.adapters.memory_usage_meter import InMemoryUsageMeter
+from jarvis.adapters.metered_embedding import MeteredEmbeddingProvider
+from jarvis.adapters.null_embedding import NullEmbeddingProvider
+from jarvis.adapters.openrouter import OpenRouterEmbeddingProvider
+from jarvis.adapters.pg_push_tokens import PgPushTokenStore
 from jarvis.adapters.supabase_storage import SupabaseAudioStorage
 from jarvis.application.metered_completer import MeteredCompleter
 from jarvis.application.metered_completion import MeteredCompletion
+from jarvis.domain.ports import EmbeddingProvider, PushTokenStore
 from jarvis.domain.pricing import PricingCatalog
 from jarvis.domain.telemetry import ModelPrice
 from jarvis.modules.core import Module, ModuleRegistry
+from jarvis.modules.heraldo.angles import AngleMemory, AngleStore
 from jarvis.modules.heraldo.dissection import DissectionService
 from jarvis.modules.heraldo.gather import GatherService
+from jarvis.modules.heraldo.in_memory_angles import InMemoryAngleStore
 from jarvis.modules.heraldo.in_memory_deliveries import InMemoryDeliveryStore
 from jarvis.modules.heraldo.in_memory_topics import InMemoryTopicStore
 from jarvis.modules.heraldo.module import HeraldoDeps, build_heraldo_module
 from jarvis.modules.heraldo.news_cache import InMemoryNewsCardCache
 from jarvis.modules.heraldo.news_card import NewsCardService
+from jarvis.modules.heraldo.pg_angles import PgAngleStore
 from jarvis.modules.heraldo.pg_deliveries import PgDeliveryStore
 from jarvis.modules.heraldo.pg_topics import PgTopicStore
 from jarvis.modules.heraldo.podcast import AudioStorage, SpeechSynthesizer
@@ -66,10 +76,44 @@ def _build_heraldo(
         dissection=DissectionService(completer),
         news_cards=NewsCardService(completer, InMemoryNewsCardCache()),
         podcast=podcast,
+        angles=_angle_memory(settings, client, engine),
+        push=ExpoPushSender(client),
+        push_tokens=_push_tokens(engine),
         clock=_utcnow,
         new_id=_new_id,
     )
     return build_heraldo_module(deps)
+
+
+def _push_tokens(engine: AsyncEngine | None) -> PushTokenStore:
+    """Tokens de push en Postgres si hay engine; si no, en memoria para arrancar sin base."""
+    if engine is None:
+        return InMemoryPushTokenStore()
+    return PgPushTokenStore(create_session_factory(engine))
+
+
+def _angle_memory(
+    settings: Settings, client: httpx.AsyncClient, engine: AsyncEngine | None
+) -> AngleMemory:
+    """Arma la memoria de ángulos: embeddings (OpenRouter con costo medido) y su almacén."""
+    return AngleMemory(_embedder(settings, client), _angle_store(engine))
+
+
+def _embedder(settings: Settings, client: httpx.AsyncClient) -> EmbeddingProvider:
+    """Embedder real por OpenRouter con costo medido si hay key; si no, el interino nulo."""
+    if not settings.openrouter_api_key:
+        return NullEmbeddingProvider()
+    model = settings.openrouter_embedding_model
+    inner = OpenRouterEmbeddingProvider(settings.openrouter_api_key, model, client)
+    pricing = PricingCatalog({model: ModelPrice(input_per_million=0.01, output_per_million=0.0)})
+    return MeteredEmbeddingProvider(inner, model, pricing, InMemoryUsageMeter(), _utcnow)
+
+
+def _angle_store(engine: AsyncEngine | None) -> AngleStore:
+    """Memoria de ángulos en Postgres si hay engine; si no, en memoria para arrancar sin base."""
+    if engine is None:
+        return InMemoryAngleStore()
+    return PgAngleStore(create_session_factory(engine))
 
 
 def _synthesizer(settings: Settings, client: httpx.AsyncClient) -> SpeechSynthesizer:

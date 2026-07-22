@@ -39,27 +39,34 @@ class PodcastService:
         now: datetime,
         episode_id: str,
         voice: str | None = None,
+        instruction: str = "",
     ) -> Episode:
         """Produce un episodio completo a partir de las historias seleccionadas."""
-        draft = await self._write_script(seeds, style, minutes, now)
+        draft = await self._write_script(seeds, style, minutes, now, instruction)
         audio = await self._synthesizer.synthesize(draft.script, style, voice)
         url = await self._storage.store(f"episodes/{episode_id}.wav", audio)
         return _to_episode(episode_id, draft, url, minutes, seeds)
 
     async def _write_script(
-        self, seeds: list[StorySeed], style: PodcastStyle, minutes: int, now: datetime
+        self,
+        seeds: list[StorySeed],
+        style: PodcastStyle,
+        minutes: int,
+        now: datetime,
+        instruction: str,
     ) -> _ScriptDraft:
         """Pide el guion al modelo en una sola llamada y lo valida."""
-        prompt = _script_prompt(seeds, style, minutes)
+        prompt = _script_prompt(seeds, style, minutes, instruction)
         text = await self._completer.complete("podcast_script", prompt, now)
         return _ScriptDraft.model_validate_json(extract_json_object(text))
 
 
 class _ScriptDraft(BaseModel):
-    """El guion tal como lo devuelve el modelo: un título y el texto hablado."""
+    """El guion tal como lo devuelve el modelo: título, texto hablado y el ángulo tratado."""
 
     title: str = ""
     script: str = ""
+    angle: str = ""
 
 
 def _to_episode(
@@ -73,6 +80,7 @@ def _to_episode(
         audio_url=url,
         duration_minutes=minutes,
         sources=_sources(seeds),
+        angle=draft.angle,
     )
 
 
@@ -81,7 +89,9 @@ def _sources(seeds: list[StorySeed]) -> tuple[str, ...]:
     return tuple(sorted({source for seed in seeds for source in seed.sources}))
 
 
-def _script_prompt(seeds: list[StorySeed], style: PodcastStyle, minutes: int) -> list[Message]:
+def _script_prompt(
+    seeds: list[StorySeed], style: PodcastStyle, minutes: int, instruction: str
+) -> list[Message]:
     """Arma el prompt que teje las historias en un guion con sustancia, estilo y largo pedidos."""
     target = minutes * _WORDS_PER_MINUTE
     floor = int(target * 0.9)
@@ -90,9 +100,16 @@ def _script_prompt(seeds: list[StorySeed], style: PodcastStyle, minutes: int) ->
         f"{_style_hint(style)} Escribe AL MENOS {floor} palabras, apuntando a ~{target} "
         f"(~{minutes} min); no termines antes de desarrollar bien cada punto. Teje las historias "
         "en un solo guion con hilo narrativo, con apertura y cierre. Responde SOLO con JSON: "
-        '{"title": "título atractivo", "script": "el guion hablado"}.'
+        '{"title": "título atractivo", "script": "el guion hablado", '
+        '"angle": "en 4 a 8 palabras, el ángulo específico que trató este episodio"}.'
     )
-    return [Message("system", system), Message("user", _seeds_block(seeds))]
+    return [Message("system", system), Message("user", _user_block(seeds, instruction))]
+
+
+def _user_block(seeds: list[StorySeed], instruction: str) -> str:
+    """Antepone la instrucción del tema (onboarding + ángulos a evitar) a las historias."""
+    stories = _seeds_block(seeds)
+    return f"{instruction}\n\nHistorias:\n{stories}" if instruction.strip() else stories
 
 
 def _style_hint(style: PodcastStyle) -> str:

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     openrouter_api_key: str = ""
+    openrouter_embedding_model: str = "baai/bge-m3"
     gemini_api_key: str = ""
     gemini_text_model: str = "gemini-flash-latest"
     gemini_tts_model: str = "gemini-3.1-flash-tts-preview"
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_key: str = ""
     supabase_bucket: str = "podcasts"
+    scheduler_owner_id: str = "dante"
 
 
 @lru_cache

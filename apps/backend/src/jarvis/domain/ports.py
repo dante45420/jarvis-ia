@@ -18,6 +18,7 @@ from jarvis.domain.memory import (
     EmbeddedFact,
     RetrievedFact,
 )
+from jarvis.domain.notifications import PushMessage, PushToken
 from jarvis.domain.telemetry import UsageRecord
 
 
@@ -71,6 +72,28 @@ class SemanticCache(Protocol):
 
     async def put(self, prompt: str, response: str) -> None:
         """Guarda una respuesta para reutilizarla ante intenciones equivalentes."""
+        ...
+
+
+@runtime_checkable
+class PushSender(Protocol):
+    """Envía avisos push a los dispositivos del usuario (aunque la app esté cerrada)."""
+
+    async def send(self, tokens: list[str], message: PushMessage) -> None:
+        """Envía el mensaje a todos los tokens en un solo lote (batching, ver D-0011)."""
+        ...
+
+
+@runtime_checkable
+class PushTokenStore(Protocol):
+    """Guarda y recupera los tokens de push de cada usuario."""
+
+    async def save(self, token: PushToken) -> None:
+        """Registra o actualiza el token de un dispositivo."""
+        ...
+
+    async def list_for_owner(self, owner_id: str) -> list[PushToken]:
+        """Devuelve los tokens de todos los dispositivos del usuario."""
         ...
 
 

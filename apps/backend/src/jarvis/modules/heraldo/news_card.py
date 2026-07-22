@@ -36,23 +36,31 @@ class NewsCardService:
         self._cache = cache
         self._limits = limits
 
-    async def deepen(self, seeds: list[StorySeed], now: datetime) -> list[NewsCard]:
+    async def deepen(
+        self, seeds: list[StorySeed], now: datetime, instruction: str = ""
+    ) -> list[NewsCard]:
         """Devuelve las tarjetas de las historias, resumiendo en lote solo las que faltan."""
         cached = await self._cache.get_many([seed.id for seed in seeds])
         missing = [seed for seed in seeds if seed.id not in cached]
-        fresh = await self._summarize_all(missing, now) if missing else []
+        fresh = await self._summarize_all(missing, now, instruction) if missing else []
         await self._cache.put_many(fresh)
         return _in_input_order(seeds, {**cached, **{card.story_id: card for card in fresh}})
 
-    async def _summarize_all(self, seeds: list[StorySeed], now: datetime) -> list[NewsCard]:
+    async def _summarize_all(
+        self, seeds: list[StorySeed], now: datetime, instruction: str
+    ) -> list[NewsCard]:
         """Trocea las historias faltantes en lotes seguros y los resume en paralelo."""
         batches = plan_batches(seeds, _seed_cost, self._limits)
-        results = await asyncio.gather(*(self._summarize(batch, now) for batch in batches))
+        results = await asyncio.gather(
+            *(self._summarize(batch, now, instruction) for batch in batches)
+        )
         return [card for batch_cards in results for card in batch_cards]
 
-    async def _summarize(self, seeds: list[StorySeed], now: datetime) -> list[NewsCard]:
+    async def _summarize(
+        self, seeds: list[StorySeed], now: datetime, instruction: str
+    ) -> list[NewsCard]:
         """Resume un lote de historias en una sola llamada y arma sus tarjetas."""
-        text = await self._completer.complete("news_card", _cards_prompt(seeds), now)
+        text = await self._completer.complete("news_card", _cards_prompt(seeds, instruction), now)
         drafts = _CardsDraft.model_validate_json(extract_json_object(text)).cards
         seeds_by_id = {seed.id: seed for seed in seeds}
         return [_to_card(draft, seeds_by_id[draft.story_id])
@@ -102,7 +110,7 @@ def _in_input_order(seeds: list[StorySeed], by_id: dict[str, NewsCard]) -> list[
     return [by_id[seed.id] for seed in seeds if seed.id in by_id]
 
 
-def _cards_prompt(seeds: list[StorySeed]) -> list[Message]:
+def _cards_prompt(seeds: list[StorySeed], instruction: str = "") -> list[Message]:
     """Arma el prompt que pide, en lote, una tarjeta por capas para cada historia."""
     system = (
         "Resumes noticias para alguien con déficit de atención: quiere leer poquísimo y luego "
@@ -113,7 +121,9 @@ def _cards_prompt(seeds: list[StorySeed]) -> list[Message]:
         '"detail": "un párrafo corto", "why_it_matters": "por qué te importa"}]}. '
         "Usa exactamente el story_id que te doy."
     )
-    return [Message("system", system), Message("user", _seeds_block(seeds))]
+    stories = _seeds_block(seeds)
+    user = f"{instruction}\n\nHistorias:\n{stories}" if instruction.strip() else stories
+    return [Message("system", system), Message("user", user)]
 
 
 def _seeds_block(seeds: list[StorySeed]) -> str:

@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from jarvis.modules.heraldo.cadence import Cadence, Frequency
 from jarvis.modules.heraldo.delivery import Delivery, DeliveryKind
 from jarvis.modules.heraldo.domain import (
     Cluster,
@@ -18,6 +19,12 @@ from jarvis.modules.heraldo.domain import (
 )
 from jarvis.modules.heraldo.news import NewsCard, StorySeed
 from jarvis.modules.heraldo.normalize import canonical_url
+from jarvis.modules.heraldo.onboarding import (
+    Objective,
+    OnboardingForm,
+    Style,
+    TopicQuestion,
+)
 from jarvis.modules.heraldo.podcast import Episode
 
 
@@ -79,13 +86,115 @@ def to_story(cluster: Cluster) -> StoryDTO:
     )
 
 
+class QAItem(BaseModel):
+    """Una pregunta (de disección o de onboarding) con la respuesta del usuario."""
+
+    question: str
+    answer: str
+
+
+_OBJECTIVES = Literal["learn_skill", "mental_health", "stay_informed", "other"]
+_FREQUENCIES = Literal["daily", "every_n_days", "weekly"]
+
+
+class StyleInput(BaseModel):
+    """Switches de tono/estilo del formulario de onboarding."""
+
+    chilean_casual: bool = True
+    backed_with_data: bool = True
+    direct: bool = True
+    with_examples: bool = False
+
+    def to_style(self) -> Style:
+        """Traduce los switches a su forma de dominio."""
+        return Style(
+            chilean_casual=self.chilean_casual,
+            backed_with_data=self.backed_with_data,
+            direct=self.direct,
+            with_examples=self.with_examples,
+        )
+
+
+class CadenceInput(BaseModel):
+    """Cada cuánto y a qué hora quiere el oyente el contenido de un tema."""
+
+    frequency: _FREQUENCIES = "daily"
+    every_days: int = 1
+    hour: int = 8
+
+    def to_cadence(self) -> Cadence:
+        """Traduce la cadencia a su forma de dominio."""
+        return Cadence(
+            frequency=Frequency(self.frequency), every_days=self.every_days, hour=self.hour
+        )
+
+
+class CadenceDTO(BaseModel):
+    """La cadencia de un tema en su forma de salida."""
+
+    frequency: str
+    every_days: int
+    hour: int
+
+
+class OnboardingDTO(BaseModel):
+    """El formulario de onboarding de un tema en su forma de salida."""
+
+    objective: str
+    objective_note: str
+    style: StyleInput
+    questions: list[QAItem]
+
+
+def to_cadence_dto(cadence: Cadence) -> CadenceDTO:
+    """Traduce la cadencia de dominio a su DTO de salida."""
+    return CadenceDTO(
+        frequency=cadence.frequency.value, every_days=cadence.every_days, hour=cadence.hour
+    )
+
+
+def to_onboarding_dto(form: OnboardingForm) -> OnboardingDTO:
+    """Traduce el formulario de onboarding de dominio a su DTO de salida."""
+    return OnboardingDTO(
+        objective=form.objective.value,
+        objective_note=form.objective_note,
+        style=StyleInput(
+            chilean_casual=form.style.chilean_casual,
+            backed_with_data=form.style.backed_with_data,
+            direct=form.style.direct,
+            with_examples=form.style.with_examples,
+        ),
+        questions=[QAItem(question=q.question, answer=q.answer) for q in form.questions],
+    )
+
+
+def build_onboarding_form(
+    objective: str, objective_note: str, style: StyleInput, answers: list[QAItem]
+) -> OnboardingForm:
+    """Arma el formulario de onboarding de dominio desde las partes fijas y las respuestas."""
+    questions = tuple(TopicQuestion(item.question, item.answer) for item in answers)
+    return OnboardingForm(
+        objective=Objective(objective),
+        style=style.to_style(),
+        questions=questions,
+        objective_note=objective_note,
+    )
+
+
 class TopicDTO(BaseModel):
-    """Un tema en su forma de salida: lo mínimo para listarlo y mostrar su estado."""
+    """Un tema en su forma de salida: estado, perfil de búsqueda, cadencia y onboarding."""
 
     id: str
     name: str
     state: str
     podcast_style: str
+    subtopics: list[str]
+    include_keywords: list[str]
+    exclude_keywords: list[str]
+    reach_threshold: int
+    recency_hours: int
+    cadence: CadenceDTO
+    onboarding: OnboardingDTO | None
 
 
 class CreateTopicInput(BaseModel):
@@ -99,6 +208,7 @@ class CreateTopicInput(BaseModel):
     reach_threshold: int = 1
     recency_hours: int = 48
     podcast_style: Literal["narrator", "dialogue"] = "narrator"
+    cadence: CadenceInput = Field(default_factory=CadenceInput)
 
 
 class CreateTopicOutput(BaseModel):
@@ -135,16 +245,25 @@ def to_topic(data: CreateTopicInput, topic_id: str) -> Topic:
         profile=profile,
         podcast_style=PodcastStyle(data.podcast_style),
         state=TopicState.ACTIVE,
+        cadence=data.cadence.to_cadence(),
     )
 
 
 def to_topic_dto(topic: Topic) -> TopicDTO:
-    """Traduce un tema de dominio a su DTO de salida."""
+    """Traduce un tema de dominio a su DTO de salida, con perfil, cadencia y onboarding."""
+    profile = topic.profile
     return TopicDTO(
         id=topic.id,
         name=topic.name,
         state=topic.state.value,
         podcast_style=topic.podcast_style.value,
+        subtopics=list(profile.subtopics),
+        include_keywords=list(profile.include_keywords),
+        exclude_keywords=list(profile.exclude_keywords),
+        reach_threshold=profile.reach_threshold,
+        recency_hours=profile.recency_hours,
+        cadence=to_cadence_dto(topic.cadence),
+        onboarding=to_onboarding_dto(topic.onboarding) if topic.onboarding else None,
     )
 
 
@@ -160,20 +279,17 @@ class ProposeQuestionsOutput(BaseModel):
     questions: list[str]
 
 
-class QAItem(BaseModel):
-    """Una pregunta de disección con la respuesta del usuario."""
-
-    question: str
-    answer: str
-
-
 class CompileProfileInput(BaseModel):
-    """Argumentos para compilar el perfil y crear el tema desde las respuestas."""
+    """Argumentos para compilar el perfil y crear el tema desde las respuestas y el onboarding."""
 
     owner_id: str
     name: str
     podcast_style: Literal["narrator", "dialogue"] = "narrator"
     answers: list[QAItem]
+    objective: _OBJECTIVES = "stay_informed"
+    objective_note: str = ""
+    style: StyleInput = Field(default_factory=StyleInput)
+    cadence: CadenceInput = Field(default_factory=CadenceInput)
 
 
 class CompileProfileOutput(BaseModel):
@@ -183,9 +299,15 @@ class CompileProfileOutput(BaseModel):
 
 
 def build_topic(
-    owner_id: str, name: str, profile: TopicProfile, style: str, topic_id: str
+    owner_id: str,
+    name: str,
+    profile: TopicProfile,
+    style: str,
+    topic_id: str,
+    cadence: Cadence,
+    onboarding: OnboardingForm,
 ) -> Topic:
-    """Construye un tema activo a partir de un perfil ya compilado."""
+    """Construye un tema activo a partir de un perfil ya compilado, con cadencia y onboarding."""
     return Topic(
         id=topic_id,
         owner_id=owner_id,
@@ -193,6 +315,8 @@ def build_topic(
         profile=profile,
         podcast_style=PodcastStyle(style),
         state=TopicState.ACTIVE,
+        cadence=cadence,
+        onboarding=onboarding,
     )
 
 
@@ -278,6 +402,7 @@ class DeepenStoriesInput(BaseModel):
     """Argumentos para profundizar las historias que seleccionaste (0 a todas)."""
 
     stories: list[StorySeedInput]
+    topic_id: str | None = None
 
 
 class DeepenStoriesOutput(BaseModel):
@@ -328,6 +453,7 @@ class ComposeEpisodeInput(BaseModel):
     style: Literal["narrator", "dialogue"] = "narrator"
     minutes: int = 10
     voice: str | None = None
+    topic_id: str | None = None
 
 
 class VoiceDTO(BaseModel):
@@ -387,3 +513,51 @@ def to_episode_dto(episode: Episode) -> EpisodeDTO:
         duration_minutes=episode.duration_minutes,
         sources=list(episode.sources),
     )
+
+
+class DueTopicsInput(BaseModel):
+    """Argumentos para consultar qué temas toca entregar ahora, según su cadencia."""
+
+    owner_id: str
+
+
+class DueTopicDTO(BaseModel):
+    """Un tema cuyo podcast toca generar ahora; el podcast siempre pide aprobación."""
+
+    topic_id: str
+    name: str
+    kind: str = "podcast"
+    needs_approval: bool = True
+
+
+class DueTopicsOutput(BaseModel):
+    """Los temas que la cadencia dejó listos para entregar ahora."""
+
+    topics: list[DueTopicDTO]
+
+
+class RegisterPushTokenInput(BaseModel):
+    """Argumentos para registrar el token de push de un dispositivo del usuario."""
+
+    owner_id: str
+    token: str
+    platform: Literal["ios", "android"] = "ios"
+
+
+class RegisterPushTokenOutput(BaseModel):
+    """Resultado de registrar un token de push."""
+
+    ok: bool
+
+
+class RunSchedulerTickInput(BaseModel):
+    """Argumentos del tick del scheduler: por quién revisar los temas que tocan ahora."""
+
+    owner_id: str
+
+
+class RunSchedulerTickOutput(BaseModel):
+    """Resultado del tick: cuántos temas se avisaron y sus nombres."""
+
+    notified: int
+    topics: list[str]

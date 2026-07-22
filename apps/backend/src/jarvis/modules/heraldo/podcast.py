@@ -18,6 +18,7 @@ class Episode:
     audio_url: str
     duration_minutes: int
     sources: tuple[str, ...]
+    angle: str = ""
 
 
 @runtime_checkable

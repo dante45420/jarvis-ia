@@ -7,9 +7,12 @@ sin gastar un token de IA.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+
+from jarvis.modules.heraldo.cadence import Cadence
+from jarvis.modules.heraldo.onboarding import OnboardingForm
 
 
 class TopicState(StrEnum):
@@ -68,7 +71,7 @@ class TopicProfile:
 
 @dataclass(frozen=True, slots=True)
 class Topic:
-    """Un tema que sigues, con su perfil de búsqueda, estilo de podcast y estado de seguimiento."""
+    """Un tema que sigues, con su perfil, estilo, cadencia, onboarding y estado de seguimiento."""
 
     id: str
     owner_id: str
@@ -76,3 +79,5 @@ class Topic:
     profile: TopicProfile
     podcast_style: PodcastStyle
     state: TopicState
+    cadence: Cadence = field(default_factory=Cadence)
+    onboarding: OnboardingForm | None = None

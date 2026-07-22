@@ -73,6 +73,22 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 > keys. Luego: **frontend web** (`apps/web` → Vercel) para consumir la API; **ruteo por urgencia**
 > ("ya"/"económico", D-0017); **selector de modelo dinámico** (`ModelRouter`, ver `mejoras_importantes.md`);
 > más fuentes (Tavily/X/newsletters) + libro mayor. Memoria: consolidación (episodic) y decaimiento.
+>
+> **App mobile cableada + onboarding y no-repetición listos** (D-0028/D-0029, jul-2026). App Expo:
+> shell de módulos (hub central fijo + laterales contextuales), podcast/noticiero/buscador cableados
+> en vivo contra Render, loaders con logo. **Onboarding como formulario** (`onboarding.tsx`): objetivo
+> + switches de tono + cadencia (deterministas, sin IA) y **preguntas del tema generadas por IA** en su
+> slot; compila un **prompt ordenado** (`onboarding.py`) que guía la generación. **No-repetición por
+> embeddings**: `AngleMemory` guarda el ángulo de cada episodio (pgvector, migración 0005) y recupera
+> por similitud los ya tratados para forzar uno nuevo. **Cadencia por tema** (`is_due`) + capacidad
+> `due_topics` (podcast pregunta, noticias auto). Migración 0004 (cadencia + onboarding en `topics`).
+>
+> **Notificaciones push listas** (D-0029): `ExpoPushSender` + `PushTokenStore` (in-memory/Postgres,
+> migración 0006), capacidades `register_push_token` y `run_scheduler_tick`, CLI + **cron en
+> `render.yaml`** (por hora, cero IA). La app registra el token al abrir (`usePushSetup`) y rutea a
+> Podcasts al tocar el aviso. **122 tests + 7 de integración**, ruff + mypy strict en verde; `tsc` limpio.
+> **Pendiente de activación (no código):** desplegar `render.yaml` (crea el cron) + aceptar push en el
+> build de TestFlight (los tokens Expo solo existen en dispositivo real).
 
 ## Fases
 
@@ -105,9 +121,30 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
 - [ ] Dashboard de costo (Bóveda) con desglose por niveles.
 - [ ] Bandeja de Jarvis (human-in-the-loop).
 
-### Fase 4 — App mobile (Expo/React Native)
-- [ ] Hub central + tabbar por módulo; offline-first.
-- [ ] Equivalentes mobile de Bóveda y Bandeja.
+### Fase 4 — App mobile (Expo/React Native) ⏳ (scaffolding hecho)
+- [x] Caparazón de **módulos-plugin** (D-0027): hub central fijo (lleva a selección de módulos y a
+      lo transversal) + tab bar con pestañas contextuales del módulo activo. Estado con `zustand`.
+- [x] Módulo Heraldo en la app: Actividad (feed en vivo), Podcasts (reproductor animado), Noticias
+      (tarjetas por capas), Ajustes (modelos por tarea + fuentes). Datos de maqueta, identidad T4+P1.
+- [x] Transversales desde el hub: **Costos** (gasto agregado) y **Mensajes** (Bandeja).
+- [x] Contrato de módulo en el frontend + registro genérico (sumar módulo = `ModuleDef` + pantallas).
+      Type-check limpio (`tsc --noEmit`), dependencias instaladas.
+- [x] Distribución por **TestFlight** (EAS Build + Submit): build iOS en la nube OK, app creada en
+      App Store Connect (ASC App ID `6793635849`, guardado en `eas.json`), certificados + push key
+      generados, submission agendado. Bundle id `com.danteparodi.jarvis`. Ícono/splash con el **logo
+      real** (`Logo_Jarvis.png`). EAS Update (OTA) configurado para actualizar sin re-subir.
+- [x] **Cableado real de los 3 flujos de Heraldo** (contra el backend vivo, verificado):
+      **Buscar en vivo** (gather/Tavily), **Noticiero** (gather → interest gate → deepen solo lo
+      elegido), **Podcast** (tema + voz + duración → gather → seleccionar fuentes → compose → escuchar
+      vía Linking). Capa de datos: `api/heraldo.ts` + hooks `useAsync`/`useAction`. Tab **Buscar**
+      agregada; Ajustes del módulo por engranaje del header. tsc + expo export en verde.
+- [x] **Cargas variadas y con propósito**: skeletons en listas, **progreso narrado por etapas** en la
+      espera larga del podcast, y el **logo girando** en esperas indeterminadas/arranque.
+- [ ] Push notifications (expo-notifications) con activar/desactivar fácil (permiso ya declarado).
+- [ ] Reproductor de audio in-app real (`expo-av`) — requiere build nativo (hoy abre con Linking).
+- [ ] Offline-first: caché de lo último por sección + descarga de audio; memoria mínima.
+- [ ] Feed de Actividad, Costos y Bandeja cableados (faltan capacidades en backend).
+- [ ] Persistir temas seguidos + re-buscar por tema (backend debe devolver el perfil).
 
 ### Fase 5 — Módulo Heraldo (podcast + noticiero + búsqueda en vivo) ⏳ (en curso)
 - [x] Contrato de módulos MCP-ready (`Capability`/`Module`/`ScheduledJob`/`ModuleRegistry`).
@@ -149,6 +186,12 @@ Fases y **estado actual**. Este es el primer archivo a leer al retomar una sesi�
       Imagen verificada (build + boot + `/health` + `/modules`). Migraciones al arrancar.
 - [ ] Ruteo por urgencia seleccionable: "ya" (Gemini directo) vs "económico" (Gemini Batch 50%).
 - [ ] Guion del podcast (narrador/diálogo) + TTS por Gemini Batch; audio en almacenamiento.
+- [ ] **Podcast sin repetición** (D-0028): que hable como experto que sale todos los días pero **sin
+      repetir** contenido. Dedup de ángulos/ideas ya entregadas vía **embeddings** contra entregas
+      pasadas (memoria del tema), no solo por URL.
+- [ ] **Instrucción/objetivo editable por tema** (D-0028): en la disección se puede editar la
+      instrucción a Heraldo (aprender una habilidad / salud mental / otro objetivo) y **ajustarla en
+      el tiempo** si cambian los requisitos o no satisface.
 
 ### Fase 6+ — Cerebro Córtex y grafo temporal
 - [ ] Orquestador conversacional sobre módulos; memoria de grafo (Graphiti) si se justifica.

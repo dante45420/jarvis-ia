@@ -543,6 +543,153 @@ capaces).
 
 ---
 
+## D-0026 — Cada módulo lleva su propia configuración transversal
+**Estado:** aceptada · Fase 5/3 (backend + frontend)
+
+**Contexto.** El usuario quiere gobernar cada módulo por separado: elegir modelos, ver el gasto
+**de ese módulo** y otros ajustes que son transversales al módulo (fuentes, carril, topes). No un
+panel global difuso, sino una superficie de configuración por módulo.
+
+**Decisión.**
+- Todo módulo expone una **superficie de configuración propia** con tres bloques mínimos:
+  1. **Modelos por tarea** — reutiliza el selector de [[D-0025]] (ranking gratis-primero, precio en
+     vivo, default fijo) filtrado a las tareas que declara el módulo.
+  2. **Gasto del módulo** — costo agregado **atribuido a ese módulo** (por tarea/fuente), con **tope
+     configurable** por módulo. La medición ya existe por request; se etiqueta con `module_id` para
+     poder agrupar.
+  3. **Ajustes transversales del módulo** — fuentes (con su ledger de "¿vale lo que cuesta?"), carril
+     por defecto (ya/económico), y lo específico del dominio.
+- El contrato `Module` gana la capacidad de **declarar su config** (tareas con `ModelRequirement`,
+  fuentes, topes) de forma que el frontend la renderice genéricamente. Mismo patrón para todo módulo
+  futuro: config transversal derivada del contrato, no hecha a mano por módulo.
+- La atribución de costo se apoya en la medición existente (`MeteredCompletion`/`MeteredCompleter`),
+  agregando `module_id`/`task` a lo que ya se registra.
+
+**Alternativas descartadas.** Panel de configuración global único (mezcla módulos, no escala);
+config hardcodeada por módulo en el frontend (rompe el patrón genérico y duplica trabajo por módulo).
+
+---
+
+## D-0027 — App móvil: caparazón de módulos con hub central fijo (Expo)
+**Estado:** aceptada · Fase 4 (scaffolding hecho)
+
+**Contexto.** La app móvil es la superficie de mayor uso (escuchar podcasts caminando). Debe ser
+intuitiva, profesional, muy interactiva/visual, de carga rápida y offline-first. El usuario definió
+la navegación: **el centro del tab bar es lo único fijo** y lleva a la selección de módulos; desde
+ahí se llega a lo transversal (costos, mensajes). Las pestañas laterales son del módulo activo.
+
+**Decisión.**
+- **Stack:** Expo (React Native) + TypeScript + expo-router (file-based). Un solo código para iOS
+  (y Android gratis), push, offline y build para App Store con la cuenta de desarrollador.
+- **Caparazón + módulos-plugin:** `app/_layout.tsx` monta un `<Stack>` y un **TabBar persistente**
+  por encima. El TabBar lee un store (`zustand`) con las pestañas del contexto activo. El **hub
+  central** (botón elevado) es fijo y navega a `/hub`.
+- **Contrato de módulo en el frontend** (`src/modules/types.ts` → `ModuleDef`): id, nombre, glyph,
+  pestañas y home. `registry.ts` lista los módulos; el hub y el TabBar los renderizan genéricamente.
+  Agregar un módulo = sumar su `ModuleDef` + sus pantallas, sin tocar el caparazón. Espeja el
+  contrato `Module` del backend ([[D-0015]]).
+- **Transversal desde el hub:** `hubTabs` = Costos + Mensajes (Bandeja). Al abrir el hub, esas son
+  las pestañas laterales; deja espacio para una tercera si aparece.
+- **Config por módulo** ([[D-0026]]) vive dentro del módulo (`heraldo/config`): modelos por tarea,
+  fuentes y —a futuro— gasto del módulo.
+- **Identidad visual:** tipografía Archivo + Figtree (T4), paleta "Vocero nocturno" (P1). Todo el
+  tema en `src/theme` (un solo lugar). Interacciones: pulso "en vivo", onda de audio animada,
+  tarjetas por capas (LayoutAnimation), switches físicos.
+
+**Pendiente (siguiente).** Cablear pantallas a las capacidades reales del backend (hoy con datos de
+maqueta), push notifications (expo-notifications) con activación/desactivación fácil, y caché
+offline-first. `npm install` + `npx expo start` desde `apps/mobile`.
+
+**Alternativas descartadas.** iOS nativo SwiftUI (más lento, sin Android/web compartido); tab bar
+estándar de expo-router con pestañas estáticas (no soporta el hub central fijo con laterales
+contextuales por módulo); Context en vez de zustand (peor para estado transversal al árbol).
+
+---
+
+## D-0028 — Podcast: sin repetición (dedup por embeddings) + instrucción/objetivo editable por tema
+**Estado:** aceptada · Fase 5 · **implementada** (2026-07-22)
+
+**Implementación.** `angles.py` (dominio `EpisodeAngle`, puerto `AngleStore`, servicio
+`AngleMemory`), `in_memory_angles.py` (coseno real) y `pg_angles.py` (pgvector, migración 0005,
+índice HNSW). Cada `compose_episode` pide al modelo un campo `angle` (4–8 palabras) sin llamada
+extra (va en el mismo JSON del guion), lo embebe y lo guarda por tema. Antes de generar, recupera
+por similitud los ángulos ya tratados y los inyecta en el prompt vía `compile_instruction`
+(`onboarding.py`, bloque "enseña un ángulo nuevo, NO repitas"). La instrucción/objetivo editable
+vive en el `OnboardingForm` persistido en el `Topic` (ver [[D-0029]]).
+
+**Contexto.** Al escuchar varios episodios de un mismo tema, el usuario nota que el contenido se
+repite. Quiere que Heraldo suene como un **experto que sale todos los días pero sin repetir** lo ya
+dicho. Además, distintos temas tienen **objetivos distintos** (aprender una habilidad, salud mental,
+otro fin) y el usuario quiere **fijar y editar esa intención** por tema, y ajustarla con el tiempo si
+cambia o no queda satisfecho.
+
+**Decisión (a implementar).**
+- **No repetición vía memoria del tema:**
+  - Guardar, por cada episodio entregado, **embeddings** de sus ideas/ángulos principales (no solo la
+    URL de la fuente). Reusar el `EmbeddingProvider` + pgvector ya existentes.
+  - Al generar un episodio nuevo: recuperar los ángulos ya cubiertos del tema y **filtrar/penalizar
+    por similitud** (dedup semántico) para forzar contenido fresco. Pasar al prompt un resumen de "ya
+    dicho: no lo repitas" con **presupuesto fijo de tokens**.
+  - La deduplicación de **fuentes** sigue determinística (normalizar URL / clustering); esto es una
+    capa **semántica** encima, sobre el contenido entregado. Complementa [[D-0022]].
+- **Instrucción/objetivo editable por tema:**
+  - `TopicProfile` gana un campo **`objective`/`instruction`** editable (texto libre acotado) que
+    orienta el tono y el fin del podcast (habilidad, salud mental, etc.).
+  - Se define en la **disección** (punto de entrada de selección de tema) y se puede **editar después**
+    (capacidad `update_topic`), sin recrear el tema. El guion lo inyecta como parte del prompt.
+- Ambas cosas se cablean **después** de: subir la app por TestFlight y conectar la app al backend.
+
+**Alternativas descartadas.** Dedup solo por URL/fuente (no evita repetir la misma idea desde otra
+fuente); mandar todo el historial de episodios al LLM (caro, rompe el presupuesto de tokens); objetivo
+global único para todo Heraldo (distintos temas necesitan distinta intención).
+
+---
+
+## D-0029 — Onboarding como formulario + cadencia por tema + scheduler determinístico
+**Estado:** aceptada · Fase 5 · **implementada** (backend + app; trigger cron pendiente de ops)
+
+**Contexto.** El usuario quiere fijar por tema: objetivo, tono, cadencia (frecuencia + hora) y
+respuestas a preguntas específicas del tema, todo en un **formulario limpio**. Las partes fijas
+(objetivo, tono, cadencia) **no deben gastar IA**; solo las **preguntas específicas del tema** las
+genera la IA, cayendo en un lugar designado del formulario. El resultado se compila en un **prompt
+ordenado** que guía la generación. Además: **noticias auto, podcast pregunta**.
+
+**Decisión.**
+- **Modelo (`onboarding.py`):** `Objective` (aprender / salud mental / informarse / otro), `Style`
+  (4 switches deterministas), `TopicQuestion` (pregunta IA + respuesta), `OnboardingForm`.
+  `compile_instruction(form, topic_name, covered_angles)` produce el prompt ordenado. Todo puro.
+- **Persistencia:** el `Topic` gana `cadence` (`Cadence`: frecuencia→días + hora) y `onboarding`
+  (`OnboardingForm`). Migración 0004 (columnas `cadence_*` + `onboarding` JSON). El `TopicDTO`
+  ahora devuelve perfil + cadencia + onboarding para poder re-generar y precargar el formulario.
+- **Flujo IA barato:** el onboarding reusa `propose_topic_questions` (preguntas del tema) y
+  `compile_topic_profile` (perfil de búsqueda). Las mismas respuestas alimentan el `OnboardingForm`
+  y el perfil, sin llamadas IA extra para las partes fijas.
+- **Scheduler (`cadence.is_due` + capacidad `due_topics`):** determinístico ($0). Devuelve los
+  temas cuyo podcast toca ahora (hora elegida + período cumplido desde la última entrega), cada uno
+  con `needs_approval=true` (**podcast pregunta**). Las **noticias** siguen siendo candidatos en
+  vivo ($0, sin IA hasta que eliges profundizar), por eso son "auto".
+- **App:** pantalla `onboarding.tsx` (formulario con switches + cadencia + preguntas IA en su slot)
+  que crea el tema; podcasts recibe `topicId` y lo pasa a `compose_episode`, activando instrucción
+  + memoria de ángulos.
+
+**Notificaciones push (implementadas).** Puerto `PushSender` + adaptador `ExpoPushSender` (Expo
+Push API, en lote), puerto `PushTokenStore` (in-memory + Postgres, migración 0006), capacidad
+`register_push_token` (la app registra su token al abrir) y `run_scheduler_tick` (revisa cadencia →
+push "¿generamos hoy tu podcast de X?" con `data.topic_id`). CLI `scheduler_cli.py` + **cron en
+`render.yaml`** (`0 * * * *`, `uv run python -m jarvis.interfaces.scheduler_cli`, cero IA). En la
+app: `usePushSetup` registra el token y **rutea a Podcasts** con el `topicId` al tocar el aviso.
+
+**Pendiente (activación, no código):** desplegar el `render.yaml` actualizado en Render (crea el
+cron) y aceptar el permiso de push en el build de TestFlight (los tokens Expo solo existen en
+dispositivo real). La entrega automática *del audio* sigue siendo bajo aprobación (podcast pregunta);
+el tap abre la pantalla para generar. Deep-link de "aprobar y generar en un toque" queda como mejora.
+
+**Alternativas descartadas.** Generar con IA las partes fijas del formulario (gasto inútil, D-0001);
+mandar el `OnboardingForm` completo en cada `compose` (redundante: se carga por `topic_id`); cadencia
+global única (cada tema tiene su ritmo).
+
+---
+
 ## Decisiones abiertas (pendientes)
 - **Umbral y estrategia del caché semántico** (similitud mínima para considerar "equivalente").
 - **Disparo exacto de la consolidación** (episodic) y política de decaimiento/olvido.

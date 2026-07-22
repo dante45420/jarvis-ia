@@ -5,11 +5,17 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from jarvis.adapters.in_memory_push_tokens import InMemoryPushTokenStore
+from jarvis.adapters.null_embedding import NullEmbeddingProvider
 from jarvis.domain.llm import Message
+from jarvis.domain.notifications import PushMessage
+from jarvis.domain.ports import PushTokenStore
 from jarvis.modules.actions import ModuleAction
+from jarvis.modules.heraldo.angles import AngleMemory
 from jarvis.modules.heraldo.dissection import DissectionService
 from jarvis.modules.heraldo.domain import PodcastStyle, RawItem
 from jarvis.modules.heraldo.gather import GatherService
+from jarvis.modules.heraldo.in_memory_angles import InMemoryAngleStore
 from jarvis.modules.heraldo.in_memory_deliveries import InMemoryDeliveryStore
 from jarvis.modules.heraldo.in_memory_topics import InMemoryTopicStore
 from jarvis.modules.heraldo.module import HeraldoDeps
@@ -39,9 +45,11 @@ class FakeCompleter:
         self._responses = responses or {}
         self._default = default
         self.calls: list[str] = []
+        self.prompts: list[list[Message]] = []
 
     async def complete(self, task: str, messages: list[Message], now: datetime) -> str:
         self.calls.append(task)
+        self.prompts.append(messages)
         return self._responses.get(task, self._default)
 
 
@@ -54,6 +62,16 @@ class FakeSynthesizer:
     async def synthesize(self, text: str, style: PodcastStyle, voice: str | None = None) -> bytes:
         self.last_voice = voice
         return text.encode()
+
+
+class FakePushSender:
+    """PushSender falso: acumula los envíos (tokens + mensaje) para verificarlos en los tests."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[list[str], PushMessage]] = []
+
+    async def send(self, tokens: list[str], message: PushMessage) -> None:
+        self.sent.append((tokens, message))
 
 
 class FakeAudioStorage:
@@ -110,6 +128,9 @@ def make_deps(
     dissection: DissectionService | None = None,
     news_cards: NewsCardService | None = None,
     podcast: PodcastService | None = None,
+    angles: AngleMemory | None = None,
+    push: FakePushSender | None = None,
+    push_tokens: PushTokenStore | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], str] | None = None,
 ) -> HeraldoDeps:
@@ -121,6 +142,9 @@ def make_deps(
         dissection=dissection or DissectionService(FakeCompleter()),
         news_cards=news_cards or NewsCardService(FakeCompleter(), InMemoryNewsCardCache()),
         podcast=podcast or PodcastService(FakeCompleter(), FakeSynthesizer(), FakeAudioStorage()),
+        angles=angles or AngleMemory(NullEmbeddingProvider(), InMemoryAngleStore()),
+        push=push or FakePushSender(),
+        push_tokens=push_tokens or InMemoryPushTokenStore(),
         clock=clock or (lambda: _DEFAULT_NOW),
         new_id=new_id or (lambda: "id-1"),
     )

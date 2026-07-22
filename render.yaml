@@ -23,3 +23,32 @@ services:
         value: podcasts
       - key: JARVIS_HERALDO_FEEDS
         sync: false
+
+  # Cron determinístico ($0, sin IA): revisa la cadencia por hora y avisa por push los podcasts
+  # que tocan (el podcast siempre pide tu aprobación). Comparte el mismo Docker y secretos.
+  - type: cron
+    name: jarvis-scheduler
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
+    schedule: "0 * * * *"
+    dockerCommand: uv run python -m jarvis.interfaces.scheduler_cli
+    envVars:
+      - key: JARVIS_ENVIRONMENT
+        value: production
+      - key: JARVIS_GEMINI_API_KEY
+        sync: false
+      - key: JARVIS_OPENROUTER_API_KEY
+        sync: false
+      - key: JARVIS_DATABASE_URL
+        sync: false
+      - key: JARVIS_SUPABASE_URL
+        sync: false
+      - key: JARVIS_SUPABASE_SERVICE_KEY
+        sync: false
+      - key: JARVIS_SUPABASE_BUCKET
+        value: podcasts
+      - key: JARVIS_HERALDO_FEEDS
+        sync: false
+      - key: JARVIS_SCHEDULER_OWNER_ID
+        value: dante

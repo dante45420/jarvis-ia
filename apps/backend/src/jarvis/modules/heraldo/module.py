@@ -6,11 +6,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from jarvis.domain.notifications import PushMessage, PushToken
+from jarvis.domain.ports import PushSender, PushTokenStore
 from jarvis.modules.core import Capability, CapabilityHandler, Module
+from jarvis.modules.heraldo.angles import AngleMemory
+from jarvis.modules.heraldo.cadence import is_due
 from jarvis.modules.heraldo.dissection import DissectionService, QuestionAnswer
-from jarvis.modules.heraldo.domain import PodcastStyle
+from jarvis.modules.heraldo.domain import PodcastStyle, Topic
 from jarvis.modules.heraldo.gather import GatherService
 from jarvis.modules.heraldo.news_card import NewsCardService
+from jarvis.modules.heraldo.onboarding import compile_instruction
 from jarvis.modules.heraldo.podcast_service import PodcastService
 from jarvis.modules.heraldo.repository import DeliveryStore, TopicStore
 from jarvis.modules.heraldo.schemas import (
@@ -22,6 +27,9 @@ from jarvis.modules.heraldo.schemas import (
     CreateTopicOutput,
     DeepenStoriesInput,
     DeepenStoriesOutput,
+    DueTopicDTO,
+    DueTopicsInput,
+    DueTopicsOutput,
     GatherInput,
     GatherOutput,
     ListTopicsInput,
@@ -34,6 +42,12 @@ from jarvis.modules.heraldo.schemas import (
     ProposeQuestionsOutput,
     RecordDeliveryInput,
     RecordDeliveryOutput,
+    RegisterPushTokenInput,
+    RegisterPushTokenOutput,
+    RunSchedulerTickInput,
+    RunSchedulerTickOutput,
+    StorySeedInput,
+    build_onboarding_form,
     build_topic,
     list_voices,
     to_card_dto,
@@ -61,6 +75,9 @@ class HeraldoDeps:
     dissection: DissectionService
     news_cards: NewsCardService
     podcast: PodcastService
+    angles: AngleMemory
+    push: PushSender
+    push_tokens: PushTokenStore
     clock: Clock
     new_id: IdFactory
 
@@ -82,7 +99,40 @@ def build_heraldo_module(deps: HeraldoDeps) -> Module:
             _list_voices_capability(deps),
             _record_delivery_capability(deps),
             _mark_consumed_capability(deps),
+            _due_topics_capability(deps),
+            _register_push_token_capability(deps),
+            _run_scheduler_tick_capability(deps),
         ),
+    )
+
+
+def _due_topics_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="due_topics",
+        description="Lista los temas cuyo podcast toca generar ahora según su cadencia. Cero IA.",
+        input_model=DueTopicsInput,
+        output_model=DueTopicsOutput,
+        handler=_due_topics_handler(deps),
+    )
+
+
+def _register_push_token_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="register_push_token",
+        description="Registra el token de push de un dispositivo para avisar al usuario.",
+        input_model=RegisterPushTokenInput,
+        output_model=RegisterPushTokenOutput,
+        handler=_register_push_token_handler(deps),
+    )
+
+
+def _run_scheduler_tick_capability(deps: HeraldoDeps) -> Capability:
+    return Capability(
+        name="run_scheduler_tick",
+        description="Revisa la cadencia y avisa por push los podcasts que tocan. Cero IA.",
+        input_model=RunSchedulerTickInput,
+        output_model=RunSchedulerTickOutput,
+        handler=_run_scheduler_tick_handler(deps),
     )
 
 
@@ -198,7 +248,13 @@ def _compile_profile_handler(deps: HeraldoDeps) -> CapabilityHandler:
     async def handle(args: CompileProfileInput) -> CompileProfileOutput:
         answers = [QuestionAnswer(item.question, item.answer) for item in args.answers]
         profile = await deps.dissection.compile_profile(args.name, answers, deps.clock())
-        topic = build_topic(args.owner_id, args.name, profile, args.podcast_style, deps.new_id())
+        onboarding = build_onboarding_form(
+            args.objective, args.objective_note, args.style, args.answers
+        )
+        topic = build_topic(
+            args.owner_id, args.name, profile, args.podcast_style, deps.new_id(),
+            args.cadence.to_cadence(), onboarding,
+        )
         await deps.topics.save(topic)
         return CompileProfileOutput(topic=to_topic_dto(topic))
 
@@ -208,7 +264,8 @@ def _compile_profile_handler(deps: HeraldoDeps) -> CapabilityHandler:
 def _deepen_stories_handler(deps: HeraldoDeps) -> CapabilityHandler:
     async def handle(args: DeepenStoriesInput) -> DeepenStoriesOutput:
         seeds = [to_seed(story) for story in args.stories]
-        cards = await deps.news_cards.deepen(seeds, deps.clock())
+        instruction = await _news_instruction(deps, args.topic_id)
+        cards = await deps.news_cards.deepen(seeds, deps.clock(), instruction)
         return DeepenStoriesOutput(cards=[to_card_dto(card) for card in cards])
 
     return handle
@@ -217,12 +274,108 @@ def _deepen_stories_handler(deps: HeraldoDeps) -> CapabilityHandler:
 def _compose_episode_handler(deps: HeraldoDeps) -> CapabilityHandler:
     async def handle(args: ComposeEpisodeInput) -> ComposeEpisodeOutput:
         seeds = [to_seed(story) for story in args.stories]
+        topic = await _load_topic(deps, args.topic_id)
+        instruction = await _podcast_instruction(deps, topic, args.stories)
         episode = await deps.podcast.compose(
-            seeds, PodcastStyle(args.style), args.minutes, deps.clock(), deps.new_id(), args.voice
+            seeds, PodcastStyle(args.style), args.minutes, deps.clock(), deps.new_id(),
+            args.voice, instruction,
         )
+        await _remember_angle(deps, topic, episode.angle)
         return ComposeEpisodeOutput(episode=to_episode_dto(episode))
 
     return handle
+
+
+async def _load_topic(deps: HeraldoDeps, topic_id: str | None) -> Topic | None:
+    """Carga el tema si vino un id; None si el pedido no está ligado a un tema guardado."""
+    return await deps.topics.get(topic_id) if topic_id else None
+
+
+async def _podcast_instruction(
+    deps: HeraldoDeps, topic: Topic | None, stories: list[StorySeedInput]
+) -> str:
+    """Compila la instrucción del podcast con el onboarding y los ángulos ya tratados del tema."""
+    if topic is None or topic.onboarding is None:
+        return ""
+    covered = await deps.angles.covered(topic.id, _seeds_query(stories))
+    return compile_instruction(topic.onboarding, topic.name, covered)
+
+
+async def _news_instruction(deps: HeraldoDeps, topic_id: str | None) -> str:
+    """Compila la instrucción del noticiero con el onboarding del tema, si lo hay."""
+    topic = await _load_topic(deps, topic_id)
+    if topic is None or topic.onboarding is None:
+        return ""
+    return compile_instruction(topic.onboarding, topic.name)
+
+
+async def _remember_angle(deps: HeraldoDeps, topic: Topic | None, angle: str) -> None:
+    """Guarda el ángulo del episodio para no repetirlo la próxima vez, si el tema está guardado."""
+    if topic is not None:
+        await deps.angles.remember(topic.id, angle, deps.clock())
+
+
+def _seeds_query(stories: list[StorySeedInput]) -> str:
+    """Texto de consulta para recuperar ángulos: los títulos y extractos de las historias."""
+    return " ".join(f"{story.title} {story.snippet}" for story in stories)
+
+
+def _due_topics_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: DueTopicsInput) -> DueTopicsOutput:
+        now = deps.clock()
+        active = await deps.topics.list_active(args.owner_id)
+        due = [topic for topic in active if await _is_topic_due(deps, topic, now)]
+        return DueTopicsOutput(topics=[DueTopicDTO(topic_id=t.id, name=t.name) for t in due])
+
+    return handle
+
+
+async def _is_topic_due(deps: HeraldoDeps, topic: Topic, now: datetime) -> bool:
+    """Indica si al tema le toca generar podcast ahora, según su cadencia y última entrega."""
+    latest = await deps.deliveries.latest_for_topic(topic.id)
+    latest_at = latest.created_at if latest is not None else None
+    return is_due(topic.cadence, latest_at, now)
+
+
+def _register_push_token_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: RegisterPushTokenInput) -> RegisterPushTokenOutput:
+        token = PushToken(args.owner_id, args.token, args.platform, deps.clock())
+        await deps.push_tokens.save(token)
+        return RegisterPushTokenOutput(ok=True)
+
+    return handle
+
+
+def _run_scheduler_tick_handler(deps: HeraldoDeps) -> CapabilityHandler:
+    async def handle(args: RunSchedulerTickInput) -> RunSchedulerTickOutput:
+        now = deps.clock()
+        active = await deps.topics.list_active(args.owner_id)
+        due = [topic for topic in active if await _is_topic_due(deps, topic, now)]
+        notified = await _notify_due(deps, args.owner_id, due)
+        return RunSchedulerTickOutput(notified=notified, topics=[topic.name for topic in due])
+
+    return handle
+
+
+async def _notify_due(deps: HeraldoDeps, owner_id: str, due: list[Topic]) -> int:
+    """Avisa por push cada podcast que toca; devuelve cuántos se avisaron (0 sin dispositivos)."""
+    if not due:
+        return 0
+    tokens = [item.token for item in await deps.push_tokens.list_for_owner(owner_id)]
+    if not tokens:
+        return 0
+    for topic in due:
+        await deps.push.send(tokens, _due_message(topic))
+    return len(due)
+
+
+def _due_message(topic: Topic) -> PushMessage:
+    """Arma el aviso que pide tu aprobación para generar el podcast del tema."""
+    return PushMessage(
+        title="Jarvis",
+        body=f"¿Generamos hoy tu podcast de {topic.name}?",
+        data={"topic_id": topic.id, "name": topic.name, "action": "approve_podcast"},
+    )
 
 
 def _list_voices_handler(deps: HeraldoDeps) -> CapabilityHandler:
