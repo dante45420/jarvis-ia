@@ -7,6 +7,9 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "ios": {
+        "image": "latest"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://jarvis-backend-cs90.onrender.com"
       }
@@ -14,6 +17,9 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
+      "ios": {
+        "image": "latest"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://jarvis-backend-cs90.onrender.com"
       }
