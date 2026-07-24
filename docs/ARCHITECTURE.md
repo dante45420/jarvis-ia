@@ -7,7 +7,7 @@ justificación (incluyendo alternativas descartadas) están en `DECISIONS.md`.
 
 | Capa | Elección | Razón (resumen) |
 |------|----------|-----------------|
-| Lenguaje/API | Python 3.12+, FastAPI (async) | Ecosistema IA + async nativo. |
+| Lenguaje/API | Python 3.14+, FastAPI (async) | Ecosistema IA + async nativo. |
 | Gestor de deps | `uv` | Rápido y reproducible. |
 | Persistencia | PostgreSQL + `pgvector` | Relacional **y** vectorial en una sola base = menos servicios, menos costo. |
 | LLM gateway | OpenRouter detrás del puerto `LLMProvider` | Ruteo al modelo más barato capaz. Nunca acoplado al SDK del proveedor. |

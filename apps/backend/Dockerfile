@@ -1,5 +1,5 @@
 # Imagen del backend de Jarvis. Corre migraciones y luego el servidor.
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \

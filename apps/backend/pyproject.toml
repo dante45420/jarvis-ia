@@ -2,7 +2,7 @@
 name = "jarvis"
 version = "0.1.0"
 description = "Asistente virtual personal, orientado a costo mínimo y escalabilidad extrema."
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -44,7 +44,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 mypy_path = "src"
 
