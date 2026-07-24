@@ -3,13 +3,16 @@ import { useEffect } from "react";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
-import { useRouter, type Router } from "expo-router";
+import { useRouter } from "expo-router";
 import { invokeCapability } from "@/api/client";
 import { ownerId } from "@/api/config";
 
+type AppRouter = ReturnType<typeof useRouter>;
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -58,13 +61,16 @@ export function usePushSetup(): void {
   useEffect(() => {
     void registerPushToken();
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      routeFromData(response.notification.request.content.data, router);
+      const data = response.notification.request.content.data;
+      if (data) {
+        routeFromData(data, router);
+      }
     });
     return () => sub.remove();
   }, [router]);
 }
 
-function routeFromData(data: Record<string, unknown>, router: Router): void {
+function routeFromData(data: Record<string, unknown>, router: AppRouter): void {
   const topicId = typeof data.topic_id === "string" ? data.topic_id : null;
   if (!topicId) {
     return;

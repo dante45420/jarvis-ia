@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "jarvis",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,

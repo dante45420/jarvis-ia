@@ -13,7 +13,7 @@ Formato: cada entrada con contexto, decisión, alternativas descartadas y estado
 escalabilidad, con nube desde el inicio pero lo más barata posible.
 
 **Decisión.**
-- Backend Python 3.12+ / FastAPI async; gestor `uv`.
+- Backend Python 3.14+ / FastAPI async; gestor `uv`.
 - Una sola base: PostgreSQL con `pgvector` para relacional + vectorial (evita sumar
   una base vectorial dedicada y su costo/operación).
 - LLM vía OpenRouter, siempre detrás del puerto `LLMProvider`.
@@ -687,6 +687,30 @@ el tap abre la pantalla para generar. Deep-link de "aprobar y generar en un toqu
 **Alternativas descartadas.** Generar con IA las partes fijas del formulario (gasto inútil, D-0001);
 mandar el `OnboardingForm` completo en cada `compose` (redundante: se carga por `topic_id`); cadencia
 global única (cada tema tiene su ritmo).
+
+---
+
+## D-0030 — Vigencia del stack: última estable madura, upgrade Expo 52 → 56
+**Estado:** aceptada · Fase 4
+
+**Contexto.** El build de iOS falló (`XCODE_BUILD_ERROR`: `fmt/consteval` no es constante) al forzar
+`image: latest` (Xcode 26) sobre **Expo SDK 52 / RN 0.76**, que no compila con ese toolchain. Apple
+exige el SDK nuevo (ITMS-90725); el SDK que Apple pide es justo el que rompe la versión vieja. Ningún
+build de SDK 52 es aceptable. El problema fue **quedarse atrás**, no ir adelante.
+
+**Decisión.**
+- **Regla dura:** el stack (lenguajes, frameworks, SDKs, dependencias) se mantiene en la **última
+  versión estable madura** — estable con parches, no recién liberada (nada de bleeding edge día-uno).
+  No se deja envejecer; si algo quedó atrás se sube en el mismo cambio. Registrada en `CLAUDE.md`.
+- **Acción:** subir Expo **52 → 56** (última estable madura; la 57 salió recién). Resuelve el requisito
+  de Apple (Xcode 26) y el error `fmt` de raíz, y deja el proyecto listo para el config plugin nativo
+  del Share Extension del módulo de reels (D-0031, futuro).
+- Upgrade con herramientas de Expo (`expo install --fix`, `expo-doctor`); gates verdes (`tsc`,
+  `expo export`) antes de lanzar el build.
+
+**Alternativas descartadas.** Parchar `fmt` con `patch-package` en SDK 52 (hack frágil, no moderniza,
+reaparece en otro punto del toolchain); ir a SDK 57 recién liberada (reintroduce inestabilidad día-uno,
+contra el objetivo de no repetir el error).
 
 ---
 

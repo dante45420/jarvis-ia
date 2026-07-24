@@ -48,6 +48,15 @@ No leas todo el código; los docs están escritos para que retomes sin escanear 
 - Cambió algo estructural → actualiza `docs/DECISIONS.md` y `docs/ARCHITECTURE.md` en el mismo cambio.
 - Avanzaste una fase → actualiza el **estado actual** en `docs/ROADMAP.md`.
 
+### Vigencia del stack (no negociable)
+- Trabaja siempre sobre la **última versión estable madura** de cada lenguaje, framework y SDK
+  (Expo, React Native, Python, dependencias). "Madura" = estable con parches, no recién liberada
+  (evita el bleeding edge día-uno, que reintroduce inestabilidad).
+- No dejes el stack envejecer: si un componente quedó atrás, súbelo en el mismo cambio salvo que
+  rompa algo que no puedas resolver ahí (y entonces déjalo anotado como deuda).
+- Motivo: las tiendas (Apple/Google) exigen toolchains recientes; quedarse atrás rompe los builds
+  (ver `docs/DECISIONS.md` D-0030). Revisa la vigencia cada vez que toques dependencias.
+
 ## Flujo de trabajo
 - Cambios chicos y verificables. Cada módulo con su test antes de avanzar.
 - Antes de introducir una librería nueva, verifica que aporte escalabilidad real y déjala anotada en `DECISIONS.md`.
